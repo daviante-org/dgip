@@ -95,13 +95,14 @@ dgip build-release --output-dir <dir> [--version <ver>]      # Standalone offlin
 | **[`docs/SECURITY.md`](./docs/SECURITY.md)** | Vulnerability reporting (`code@daviante.org`), read-only HTTP threat model, SSRF/tarbomb guards, container hardening, and SLSA provenance verification. |
 | **[`docs/TERMS.md`](./docs/TERMS.md)** | Terms of Use, acceptable public API usage, and geolocation/BGP routing accuracy disclaimers. |
 | **[`docs/PRIVACY.md`](./docs/PRIVACY.md)** | Zero-telemetry self-hosted guarantee, `https://dgip.daviante.org` volatile rate-limit policy, and RIR metadata scope. |
+| **[`CREDITS.md`](./CREDITS.md)** · **[`NOTICE`](./NOTICE)** | Complete third-party data ownership, copyright, attribution, and trademark notices across all 25 upstream feeds and open format specs. |
 | **[`openapi.yaml`](./openapi.yaml)** | Canonical OpenAPI 3.1 HTTP specification (verified 1:1 against Axum HTTP routes in CI). |
 | **[`charts/dgip/`](./charts/dgip/Chart.yaml)** · **[`deploy/`](./deploy/kubernetes/dgip.yaml)** | Official Helm v3 chart and standalone Kubernetes / Red Hat OpenShift manifests. |
 
 ---
 
-## License
+## License & Upstream Data Attribution
 
-Licensed under the [Apache License, Version 2.0](./LICENSE). Weekly compiled datasets in [`daviante-org/dgip-data`](https://github.com/daviante-org/dgip-data) are published under PDDL v1.0.
+Software, schemas, and documentation in this repository are licensed under the [Apache License, Version 2.0](./LICENSE) (see [`NOTICE`](./NOTICE)). Daviante claims no ownership over third-party registry, BGP routing, RPKI, geofeed, or threat-intelligence data; all upstream rights belong to their respective owners as credited in [`CREDITS.md`](./CREDITS.md). Weekly compiled datasets in [`daviante-org/dgip-data`](https://github.com/daviante-org/dgip-data) are published under PDDL v1.0 subject to upstream source terms.
 
 Maintained by **Daviante** (`https://daviante.org`) — Contact: `code@daviante.org`.

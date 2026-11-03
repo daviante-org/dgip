@@ -1,0 +1,81 @@
+DGIP — Self-Hosted 4-Layer IP Intelligence Engine
+Copyright 2026 Daviante (https://daviante.org)
+
+This product includes compilation software, schemas, and documentation developed
+by Daviante (https://daviante.org) and licensed under the Apache License,
+Version 2.0 (see LICENSE).
+
+================================================================================
+NO CLAIM OF OWNERSHIP OVER THIRD-PARTY REGISTRY, ROUTING, OR SECURITY DATA
+================================================================================
+
+Daviante does NOT claim copyright, database ownership, or proprietary rights
+over any underlying Internet number registry records, BGP routing tables, RPKI
+cryptographic payloads, network operator geofeeds, or network security feeds
+ingested at runtime by DGIP or compiled into DGIP snapshots. All rights, titles,
+database rights, and trademarks in upstream data belong exclusively to their
+respective maintainers, registries, and network operators:
+
+1. Regional Internet Registries (NRO Extended Delegation Statistics):
+   - American Registry for Internet Numbers (ARIN) — https://www.arin.net/
+   - Réseaux IP Européens Network Coordination Centre (RIPE NCC) — https://www.ripe.net/
+   - Asia-Pacific Network Information Centre (APNIC) — https://www.apnic.net/
+   - Latin America and Caribbean Network Information Centre (LACNIC) — https://www.lacnic.net/
+   - African Network Information Centre (AFRINIC) — https://afrinic.net/
+
+2. Global BGP Routing & Autonomous System Metadata:
+   - RIPE NCC Routing Information Service (RIS) (`rrc00`–`rrc26` BGP dumps and
+     registered AS organization names) — https://ris.ripe.net/
+   - bgp.tools (Port 179 Ltd / Ben Cox) — https://bgp.tools/
+
+3. Cryptographic RPKI Route Origin Validation:
+   - OpenBSD `rpki-client` Project Public Console (Validated ROA Payloads across
+     all 5 RIR Trust Anchors, ISC License / Public RPKI data) —
+     https://console.rpki-client.org/
+
+4. First-Party Cloud, CDN & Privacy Relay Operator Publications (`RFC 8805` & IP Lists):
+   - Amazon Web Services, Inc. (AWS) — https://ip-ranges.amazonaws.com/geo-ip-feed.csv
+   - Google LLC (Google Cloud Platform) — https://www.gstatic.com/ipranges/cloud.json
+   - Oracle America, Inc. (Oracle Cloud Infrastructure) — https://docs.oracle.com/en-us/iaas/tools/public_ip_ranges.json
+   - DigitalOcean, LLC — https://digitalocean.com/geo/google.csv
+   - Akamai Technologies, Inc. / Linode LLC — https://geoip.linode.com/
+   - The Constant Company, LLC (Vultr) — https://geofeed.constant.com/
+   - Apple Inc. (iCloud Private Relay) — https://mask-api.icloud.com/egress-ip-ranges.csv
+   - Cloudflare, Inc. — https://www.cloudflare.com/ips/
+   - Fastly, Inc. — https://api.fastly.com/public-ip-list
+   - GitHub, Inc. — https://api.github.com/meta
+
+5. Anonymity Network & Open Threat Intelligence Feeds:
+   - The Tor Project, Inc. (Tor Bulk Exit List) — https://check.torproject.org/torbulkexitlist
+   - The Spamhaus Project (`© The Spamhaus Project`, Spamhaus DROP IPv4 & IPv6,
+     `drop_v4.json` & `drop_v6.json`) — https://www.spamhaus.org/drop/
+     Provided free of charge by The Spamhaus Project for network defense; all
+     underlying copyright and database rights remain with The Spamhaus Project.
+   - abuse.ch (Institute for Cybersecurity and Engineering ICE, Bern University
+     of Applied Sciences — Feodo Tracker Botnet C2 IP Blocklist, CC0 1.0
+     Universal) — https://feodotracker.abuse.ch/
+
+6. Open Standards & Binary Format Specifications:
+   - IANA IPv4 & IPv6 Special-Purpose Address Registries (`RFC 6890`, `RFC 4291`) —
+     https://www.iana.org/assignments/iana-ipv4-special-registry/
+   - MaxMind DB File Format Specification v2.0 — https://maxmind.github.io/MaxMind-DB/
+     Specification copyright MaxMind, Inc., licensed under the Creative Commons
+     Attribution-ShareAlike 3.0 Unported License (CC BY-SA 3.0:
+     https://creativecommons.org/licenses/by-sa/3.0/). DGIP implements an
+     independent clean-room Rust binary encoder conforming to the open `.mmdb`
+     format specification and incorporates ZERO MaxMind GeoLite2 or GeoIP2 data.
+
+================================================================================
+TRADEMARK & NON-AFFILIATION DISCLAIMER
+================================================================================
+
+All third-party organization names, product names, and marks (including ARIN,
+RIPE NCC, APNIC, LACNIC, AFRINIC, OpenBSD, bgp.tools, AWS, Google Cloud, Oracle,
+DigitalOcean, Akamai, Linode, Vultr, Apple, iCloud, Cloudflare, Fastly, GitHub,
+Tor, Spamhaus, abuse.ch, and MaxMind) are the property of their respective
+owners. Reference to these sources in DGIP is strictly nominative attribution of
+upstream data provenance and does not imply affiliation, sponsorship,
+partnership, or endorsement by any third party.
+
+Full itemized provenance, terms links, and rights-holder contact details are
+documented in CREDITS.md (Contact: code@daviante.org).

@@ -8,10 +8,11 @@ By using the `dgip` software (`daviante-org/dgip`), querying the Daviante-hosted
 
 ---
 
-## 1. Software and Dataset Licensing
+## 1. Software, Dataset Licensing & Upstream Ownership
 
-1. **Application Software (`daviante-org/dgip`)**: Source code, container definitions, Helm charts, deployment manifests, and documentation in this repository are licensed under the **Apache License, Version 2.0** ([`LICENSE`](../LICENSE)). You may self-host, modify, and distribute `dgip` in accordance with the Apache-2.0 license.
-2. **Published Datasets (`daviante-org/dgip-data`)**: Weekly dataset snapshots (`bundle.tar.gz`, `.csv.gz`, `.mmdb`) distributed via `daviante-org/dgip-data` are licensed under the Open Data Commons Public Domain Dedication and License (**PDDL v1.0**), subject to upstream Regional Internet Registry terms described in [`SOURCES_AND_DATA_POLICY.md`](./SOURCES_AND_DATA_POLICY.md).
+1. **Application Software (`daviante-org/dgip`)**: Source code, container definitions, Helm charts, deployment manifests, and documentation in this repository are licensed under the **Apache License, Version 2.0** ([`LICENSE`](../LICENSE), [`NOTICE`](../NOTICE)). You may self-host, modify, and distribute `dgip` in accordance with the Apache-2.0 license, including preserving the attribution notices in [`NOTICE`](../NOTICE).
+2. **Published Datasets (`daviante-org/dgip-data`)**: Daviante's compilation work in weekly dataset snapshots (`bundle.tar.gz`, `.csv.gz`, `.mmdb`) distributed via `daviante-org/dgip-data` is dedicated under the Open Data Commons Public Domain Dedication and License (**PDDL v1.0**), strictly subject to upstream Regional Internet Registry, BGP collector, cloud provider, and threat-intelligence terms documented in [`CREDITS.md`](../CREDITS.md), [`NOTICE`](../NOTICE), and [`SOURCES_AND_DATA_POLICY.md`](./SOURCES_AND_DATA_POLICY.md).
+3. **No Claim of Upstream Ownership**: Daviante does **not** claim ownership over third-party upstream registry records, routing tables, geofeed files, or security blocklists, and does **not** transfer or sublicense rights belonging to upstream providers.
 
 ---
 

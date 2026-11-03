@@ -120,6 +120,8 @@ Every weekly release (`vYYYY.Www`) produces **10 dataset artifacts** plus `bundl
 Every `manifest.json` and snapshot metadata response carries explicit attribution:
 > *Compiled by Daviante (https://daviante.org) from public Regional Internet Registry delegations (ARIN, RIPE NCC, APNIC, LACNIC, AFRINIC), RIPE NCC RIS BGP routing tables, OpenBSD rpki-client RPKI VRPs, bgp.tools AS classifications, RFC 8805 operator/cloud geofeeds, and open network security feeds (Tor Project, Spamhaus DROP, Abuse.ch Feodo Tracker).*
 
+For itemized upstream data ownership, license terms, and third-party copyright attributions across all sources, see [`CREDITS.md`](../CREDITS.md) and [`NOTICE`](../NOTICE).
+
 ### How Network Operators & LIRs Request Corrections
 Daviante does **not** maintain ad-hoc manual IP geolocation overrides. Network operators seeking to update country, sub-national location, or ASN metadata for prefixes they administer should:
 1. Update the `country:` and `geofeed:` (`RFC 9092` / `RFC 8805`) attributes on the authoritative `inetnum` / `inet6num` / `NetRange` registration object at **ARIN, RIPE NCC, APNIC, LACNIC, or AFRINIC**.
