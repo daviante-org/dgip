@@ -1,0 +1,302 @@
+# ==============================================================================
+# DGIP GitHub-Only Release Workflow (GHCR Container Image + GHCR OCI Helm Chart)
+# ==============================================================================
+# Publishes all artifacts exclusively to GitHub infrastructure (zero external
+# registries or third-party cloud credentials) using native parallel x86_64 and
+# ARM64 runners (zero QEMU emulation) + BuildKit GHA dependency layer caching:
+#   1. Multi-arch OCI Container Image -> `ghcr.io/daviante-org/dgip:<version>`
+#   2. OCI Helm v3 Chart              -> `oci://ghcr.io/daviante-org/charts/dgip`
+#   3. GitHub Release Assets          -> `dgip-<version>.tgz` & `openapi.yaml`
+#   4. Keyless OIDC SLSA Provenance   -> `actions/attest-build-provenance@v4`
+# ==============================================================================
+name: Release Container & Helm Chart
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing SemVer git tag to publish (e.g. v1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  GHCR_IMAGE: ghcr.io/daviante-org/dgip
+  GHCR_HELM_OCI: oci://ghcr.io/daviante-org/charts
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: linux/amd64
+            arch: amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Resolve release tag & version
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RAW_TAG="${{ inputs.tag }}"
+          else
+            RAW_TAG="${GITHUB_REF_NAME}"
+          fi
+          if ! echo "${RAW_TAG}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._-]+)?$'; then
+            echo "::error::Invalid SemVer tag: ${RAW_TAG}"
+            exit 1
+          fi
+          VERSION="${RAW_TAG#v}"
+          echo "tag=${RAW_TAG}" >> "${GITHUB_OUTPUT}"
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+
+      - name: Checkout tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.meta.outputs.tag }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Authenticate to GitHub Container Registry (ghcr.io)
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push native ${{ matrix.platform }} image by digest
+        id: push_slice
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          outputs: type=image,name=${{ env.GHCR_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=dgip-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=dgip-${{ matrix.arch }}
+
+      - name: Export slice digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.push_slice.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload slice digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Merge Manifest, Helm & Release
+    needs: [build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - name: Resolve release tag & version
+        id: meta
+        env:
+          APP_PRIVATE_KEY: ${{ secrets.VEGAPUNK_PRIVATE_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RAW_TAG="${{ inputs.tag }}"
+          else
+            RAW_TAG="${GITHUB_REF_NAME}"
+          fi
+          if ! echo "${RAW_TAG}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._-]+)?$'; then
+            echo "::error::Invalid SemVer tag: ${RAW_TAG}"
+            exit 1
+          fi
+          VERSION="${RAW_TAG#v}"
+          STARTED_UTC="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" --jq '.run_started_at' 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "tag=${RAW_TAG}" >> "${GITHUB_OUTPUT}"
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "run_started_utc=${STARTED_UTC}" >> "${GITHUB_OUTPUT}"
+          if [ -n "${APP_PRIVATE_KEY}" ]; then
+            echo "has_app_key=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "has_app_key=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Checkout tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.meta.outputs.tag }}
+
+      - name: Download per-arch image digests
+        uses: actions/download-artifact@v8
+        with:
+          pattern: digests-*
+          path: /tmp/digests
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Authenticate to GitHub Container Registry (ghcr.io)
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge & push multi-arch OCI manifest index
+        id: merge_image
+        run: |
+          set -euo pipefail
+          SOURCES=()
+          for f in /tmp/digests/*; do
+            DIGEST_HEX="$(basename "$f")"
+            SOURCES+=("${GHCR_IMAGE}@sha256:${DIGEST_HEX}")
+          done
+          docker buildx imagetools create \
+            --tag "${GHCR_IMAGE}:${{ steps.meta.outputs.version }}" \
+            --tag "${GHCR_IMAGE}:${{ steps.meta.outputs.tag }}" \
+            "${SOURCES[@]}"
+
+          INSPECT_OUT="$(docker buildx imagetools inspect "${GHCR_IMAGE}:${{ steps.meta.outputs.version }}")"
+          echo "${INSPECT_OUT}"
+          INDEX_DIGEST="$(printf '%s\n' "${INSPECT_OUT}" | awk '/^Digest:/ {print $2; exit}')"
+          if [ -z "${INDEX_DIGEST}" ]; then
+            INDEX_DIGEST="sha256:$(docker buildx imagetools inspect "${GHCR_IMAGE}:${{ steps.meta.outputs.version }}" --raw | sha256sum | awk '{print $1}')"
+          fi
+          echo "digest=${INDEX_DIGEST}" >> "${GITHUB_OUTPUT}"
+
+      - name: Attest SLSA build provenance for GHCR container image
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ env.GHCR_IMAGE }}
+          subject-digest: ${{ steps.merge_image.outputs.digest }}
+          push-to-registry: true
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
+
+      - name: Lint, package, and push OCI Helm chart to ghcr.io/daviante-org/charts
+        id: helm_pkg
+        env:
+          HELM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          helm lint charts/dgip --strict
+          mkdir -p dist-helm
+          helm package charts/dgip \
+            --version "${{ steps.meta.outputs.version }}" \
+            --app-version "${{ steps.meta.outputs.version }}" \
+            --destination dist-helm
+
+          CHART_TGZ="dist-helm/dgip-${{ steps.meta.outputs.version }}.tgz"
+          echo "${HELM_TOKEN}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          helm push "${CHART_TGZ}" "${{ env.GHCR_HELM_OCI }}"
+          echo "chart_tgz=${CHART_TGZ}" >> "${GITHUB_OUTPUT}"
+
+      - name: Attest SLSA build provenance for packaged Helm chart
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ steps.helm_pkg.outputs.chart_tgz }}
+
+      - name: Prune orphaned untagged GHCR package versions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_STARTED_UTC: ${{ steps.meta.outputs.run_started_utc }}
+        run: |
+          set -euo pipefail
+          IMG_JSON="$(gh api '/orgs/daviante-org/packages/container/dgip/versions?per_page=100' 2>/dev/null || echo '[]')"
+          KEEP_FILE="$(mktemp)"
+          for f in /tmp/digests/*; do
+            [ -e "$f" ] || continue
+            echo "sha256:$(basename "$f")" >> "${KEEP_FILE}"
+          done
+          echo "${IMG_JSON}" | jq -r '.[] | select(((.metadata.container.tags // []) | map(select(. != "latest")) | length) > 0) | "\(.name) \((.metadata.container.tags | map(select(. != "latest")))[0])"' | while read -r DIGEST FIRST_TAG; do
+            [ -z "${DIGEST}" ] && continue
+            echo "${DIGEST}" >> "${KEEP_FILE}"
+            if RAW_MANIFEST="$(docker buildx imagetools inspect "ghcr.io/daviante-org/dgip:${FIRST_TAG}" --raw 2>/dev/null)"; then
+              echo "${RAW_MANIFEST}" | jq -r '.manifests[]?.digest // empty' >> "${KEEP_FILE}" || true
+            fi
+          done
+
+          echo "${IMG_JSON}" | jq -r --arg started "${RUN_STARTED_UTC}" \
+            '.[] | select((((.metadata.container.tags // []) | map(select(. != "latest")) | length) == 0) and (.created_at < $started)) | "\(.id) \(.name)"' | while read -r VID VNAME; do
+            [ -z "${VID}" ] && continue
+            if ! grep -Fxq "${VNAME}" "${KEEP_FILE}" 2>/dev/null; then
+              if gh api -X DELETE "/orgs/daviante-org/packages/container/dgip/versions/${VID}" >/dev/null 2>&1; then
+                echo "Deleted orphaned dgip container version ${VID} (${VNAME})"
+              fi
+            fi
+          done
+
+          CHART_JSON="$(gh api '/orgs/daviante-org/packages/container/charts%2Fdgip/versions?per_page=100' 2>/dev/null || echo '[]')"
+          echo "${CHART_JSON}" | jq -r --arg started "${RUN_STARTED_UTC}" \
+            '.[] | select(((.metadata.container.tags // []) | length == 0) and (.created_at < $started)) | "\(.id) \(.name)"' | while read -r VID VNAME; do
+            [ -z "${VID}" ] && continue
+            if gh api -X DELETE "/orgs/daviante-org/packages/container/charts%2Fdgip/versions/${VID}" >/dev/null 2>&1; then
+              echo "Deleted orphaned charts/dgip version ${VID} (${VNAME})"
+            fi
+          done
+          rm -f "${KEEP_FILE}"
+
+      - name: Mint Mr.Vegapunk GitHub App token (optional, falls back to GITHUB_TOKEN)
+        id: app_token
+        if: steps.meta.outputs.has_app_key == 'true'
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.VEGAPUNK_CLIENT_ID || 'Iv23li4BXFvpVa86toEJ' }}
+          private-key: ${{ secrets.VEGAPUNK_PRIVATE_KEY }}
+
+      - name: Publish GitHub Release with Helm chart & OpenAPI contract
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.meta.outputs.tag }}"
+          VER="${{ steps.meta.outputs.version }}"
+          NOTES_FILE="$(mktemp)"
+          {
+            echo "## Release \`${TAG}\`"
+            echo ""
+            echo "### Container Image (GitHub Container Registry)"
+            echo '```bash'
+            echo "docker pull ghcr.io/daviante-org/dgip:${VER}"
+            echo "podman pull ghcr.io/daviante-org/dgip:${VER}"
+            echo '```'
+            echo ""
+            echo "### Helm Chart (GitHub Container Registry OCI)"
+            echo '```bash'
+            echo "helm install dgip oci://ghcr.io/daviante-org/charts/dgip --version ${VER} -n dgip --create-namespace"
+            echo '```'
+          } > "${NOTES_FILE}"
+
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" "${{ steps.helm_pkg.outputs.chart_tgz }}" openapi.yaml --clobber
+          else
+            gh release create "${TAG}" \
+              --title "${TAG}" \
+              --notes-file "${NOTES_FILE}" \
+              "${{ steps.helm_pkg.outputs.chart_tgz }}" \
+              openapi.yaml
+          fi

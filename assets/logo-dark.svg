@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 56" width="200" height="56">
+  <defs>
+    <!-- Primary Enterprise Crimson Gradient -->
+    <linearGradient id="dg-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F43F5E" />
+      <stop offset="50%" stop-color="#E11D48" />
+      <stop offset="100%" stop-color="#9F1239" />
+    </linearGradient>
+
+    <!-- Subtle Top-Down Specular Highlight for Container -->
+    <linearGradient id="dg-border" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.0" />
+    </linearGradient>
+
+    <!-- Left Illuminated Pin Facet -->
+    <linearGradient id="pin-left" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#FFE4E6" />
+    </linearGradient>
+
+    <!-- Right Shaded Pin Facet (Creates 3D Origami/Bevel Effect) -->
+    <linearGradient id="pin-right" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FECDD3" />
+      <stop offset="100%" stop-color="#FDA4AF" />
+    </linearGradient>
+
+    <!-- Soft Drop Shadow for the Geo Pin -->
+    <filter id="mark-shadow" x="-15%" y="-15%" width="130%" height="135%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#881337" flood-opacity="0.4" />
+    </filter>
+  </defs>
+
+  <!-- ICON MARK (44x44 Squircle anchored at x=6, y=6) -->
+  <g transform="translate(6, 6)">
+    <!-- Base Squircle -->
+    <rect width="44" height="44" rx="12" fill="url(#dg-bg)" />
+    <!-- Inner Bevel Highlight -->
+    <rect x="0.5" y="0.5" width="43" height="43" rx="11.5" fill="none" stroke="url(#dg-border)" stroke-width="1" />
+
+    <!-- Subtle Background Globe Grid (GeoIP Context) -->
+    <g stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="1" fill="none">
+      <circle cx="22" cy="22" r="15" />
+      <ellipse cx="22" cy="22" rx="7.5" ry="15" />
+      <line x1="7" y1="22" x2="37" y2="22" />
+    </g>
+
+    <!-- Rear Radar / Subnet Pulse Ring -->
+    <ellipse cx="22" cy="34" rx="10" ry="3.5" fill="none" stroke="#FFE4E6" stroke-opacity="0.55" stroke-width="1.5" />
+
+    <!-- 3D Faceted Geo Pin -->
+    <g filter="url(#mark-shadow)">
+      <!-- Left Lit Half -->
+      <path d="M 22,7 C 14.8,7 10,12.2 10,19 C 10,26.5 22,36 22,36 L 22,7 Z" fill="url(#pin-left)" />
+      <!-- Right Shaded Half -->
+      <path d="M 22,7 C 29.2,7 34,12.2 34,19 C 34,26.5 22,36 22,36 L 22,7 Z" fill="url(#pin-right)" />
+
+      <!-- Inner Core Cutout (Network Node) -->
+      <circle cx="22" cy="18.5" r="5" fill="#9F1239" />
+      <!-- Live IP Ping Dot -->
+      <circle cx="22" cy="18.5" r="2" fill="#FFFFFF" />
+    </g>
+  </g>
+
+  <!-- ENTERPRISE WORDMARK (Dark Mode — tuned for GitHub #0d1117): dgip. -->
+  <g transform="translate(64, 38)" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+    <text font-size="30" letter-spacing="-0.8">
+      <tspan fill="#F8FAFC" font-weight="700">dg</tspan><tspan fill="#CBD5E1" font-weight="600">ip</tspan><tspan fill="#FB7185" font-weight="900">.</tspan>
+    </text>
+  </g>
+</svg>

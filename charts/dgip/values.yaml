@@ -1,0 +1,236 @@
+# ==============================================================================
+# DGIP Helm Chart — Default Configuration Values
+# ==============================================================================
+# Supports:
+#   - Standard Kubernetes clusters (EKS, GKE, AKS, k3s, kind, bare-metal)
+#   - Red Hat OpenShift Container Platform (`openshift.enabled: true`)
+#
+# Container images and OCI chart packages are hosted exclusively on GitHub:
+#   Image: ghcr.io/daviante-org/dgip
+#   Chart: oci://ghcr.io/daviante-org/charts/dgip
+# ==============================================================================
+
+# Number of stateless DGIP API replicas (ignored when autoscaling.enabled is true).
+# Multiple replicas safely coordinate sync/release jobs via PostgreSQL advisory locks.
+replicaCount: 2
+
+image:
+  # Official multi-arch image published to GitHub Container Registry
+  repository: ghcr.io/daviante-org/dgip
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion ("1.0.0")
+  tag: ""
+
+# Optional imagePullSecrets if pulling from a private GHCR mirror
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+# ------------------------------------------------------------------------------
+# Interactive Branded Swagger UI (/docs) & Live OpenAPI JSON (/openapi.json)
+# ------------------------------------------------------------------------------
+swagger:
+  # Set to `false` to disable /docs, /openapi.json, and /docs/assets/* (returns 404).
+  enabled: true
+
+# ------------------------------------------------------------------------------
+# DGIP Bootstrap & Pool Settings
+# Operational settings (sync intervals, BGP peer thresholds, rate limits, feeds,
+# and trusted proxies) live in PostgreSQL tables and hot-reload automatically.
+# ------------------------------------------------------------------------------
+config:
+  dbPoolMinSize: 2
+  dbPoolMaxSize: 16
+  catalogPollSeconds: 2.0
+  # Strictly used once when initializing an empty PostgreSQL database
+  initialBootstrapUrl: "https://github.com/daviante-org/dgip-data/releases/latest/download/bundle.tar.gz"
+  initialSnapshotRetention: 5
+  corsAllowOrigins: "*"
+  # Additional raw environment variables injected into the DGIP container
+  extraEnv: []
+
+# ------------------------------------------------------------------------------
+# PostgreSQL Configuration
+# Choose EITHER the bundled single-node StatefulSet (`database.internal.enabled: true`)
+# OR an external managed/HA PostgreSQL cluster (`database.internal.enabled: false`
+# with `database.external.*` configured, e.g. CloudNativePG, Patroni, RDS).
+# ------------------------------------------------------------------------------
+database:
+  internal:
+    enabled: true
+    image:
+      repository: docker.io/library/postgres
+      tag: "18.6-alpine"
+      pullPolicy: IfNotPresent
+    username: dgip
+    database: dgip
+    # Password for the bundled PostgreSQL instance (auto-generated if left empty
+    # and `existingSecret` is not set).
+    password: ""
+    existingSecret: ""
+    existingSecretPasswordKey: "postgres-password"
+    persistence:
+      enabled: true
+      storageClassName: ""
+      accessModes:
+        - ReadWriteOnce
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 2Gi
+
+  external:
+    # Full PostgreSQL connection URI (`postgresql://user:pass@host:5432/dgip`) used
+    # when `database.internal.enabled` is `false` and `existingSecret` is empty.
+    url: ""
+    # Pre-existing Secret containing the full `DGIP_DATABASE_URL` URI (recommended for production).
+    existingSecret: ""
+    existingSecretKey: "database-url"
+
+# ------------------------------------------------------------------------------
+# Red Hat OpenShift Container Platform Integration
+# ------------------------------------------------------------------------------
+openshift:
+  # Set `openshift.enabled: true` when deploying to Red Hat OpenShift.
+  # When enabled, hardcoded `runAsUser`, `runAsGroup`, and `fsGroup` values are
+  # omitted from Pod and Container securityContexts so OpenShift's `restricted-v2`
+  # Security Context Constraint (SCC) admission controller dynamically assigns
+  # UIDs from the project/namespace range without admission errors.
+  enabled: false
+
+  # Native OpenShift `route.openshift.io/v1` Route resource
+  route:
+    enabled: false
+    # Leave empty to let OpenShift router assign a default cluster hostname,
+    # or set explicitly (e.g. "dgip.daviante.org").
+    host: ""
+    path: ""
+    annotations: {}
+    tls:
+      enabled: true
+      termination: edge
+      insecureEdgeTerminationPolicy: Redirect
+
+# ------------------------------------------------------------------------------
+# ServiceAccount
+# ------------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
+  name: ""
+
+# ------------------------------------------------------------------------------
+# Pod Annotations, Labels & Security Contexts
+# ------------------------------------------------------------------------------
+podAnnotations: {}
+podLabels: {}
+
+# Applied on standard Kubernetes (`openshift.enabled: false`).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 0
+  fsGroup: 0
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container-level hardening enforced on both Kubernetes and OpenShift
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+# Ephemeral /tmp volume backing /tmp/dgip-cache on the read-only root filesystem
+tmpVolume:
+  # Set `medium: Memory` to back /tmp with RAM tmpfs, or `""` for node ephemeral disk
+  medium: ""
+  sizeLimit: 1Gi
+
+# ------------------------------------------------------------------------------
+# Kubernetes Service & Standard Ingress
+# ------------------------------------------------------------------------------
+service:
+  type: ClusterIP
+  port: 8090
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: dgip.daviante.org
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: dgip-tls
+  #    hosts:
+  #      - dgip.daviante.org
+
+# ------------------------------------------------------------------------------
+# Compute Resources, Probes, Autoscaling, PDB & NetworkPolicy
+# ------------------------------------------------------------------------------
+resources:
+  requests:
+    cpu: 100m
+    memory: 64Mi
+  limits:
+    cpu: "1"
+    memory: 768Mi
+
+# Startup probe allows up to 300s (30 * 10s) on first boot while DGIP downloads
+# and indexes the one-time initial bootstrap bundle from daviante-org/dgip-data.
+startupProbe:
+  httpGet:
+    path: /healthz/live
+    port: http
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+
+livenessProbe:
+  httpGet:
+    path: /healthz/live
+    port: http
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /healthz/ready
+    port: http
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 75
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  # Optional Kubernetes NetworkPolicy restricting ingress to port 8090
+  enabled: false
+  allowAllIngress: true
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

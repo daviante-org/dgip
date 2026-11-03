@@ -1,0 +1,114 @@
+# Stateless DGIP API Deployment.
+# Replicas share PostgreSQL 17 and coordinate background sync / weekly release
+# schedules via PostgreSQL advisory locks (`pg_try_advisory_lock`).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dgip.fullname" . }}
+  labels:
+    {{- include "dgip.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "dgip.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "dgip.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "dgip.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
+      securityContext:
+        {{- include "dgip.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: dgip
+          securityContext:
+            {{- include "dgip.containerSecurityContext" . | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8090
+              protocol: TCP
+          env:
+            {{- if and .Values.database.internal.enabled .Values.database.internal.existingSecret }}
+            - name: DGIP_PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.internal.existingSecret }}
+                  key: {{ .Values.database.internal.existingSecretPasswordKey }}
+            - name: DGIP_DATABASE_URL
+              value: {{ printf "postgresql://%s:$(DGIP_PG_PASSWORD)@%s:5432/%s" .Values.database.internal.username (include "dgip.postgresql.fullname" .) .Values.database.internal.database | quote }}
+            {{- else }}
+            - name: DGIP_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "dgip.dbUrlSecretName" . }}
+                  key: {{ include "dgip.dbUrlSecretKey" . }}
+            {{- end }}
+            - name: DGIP_SWAGGER_ENABLED
+              value: {{ .Values.swagger.enabled | quote }}
+            - name: DGIP_DB_POOL_MIN_SIZE
+              value: {{ .Values.config.dbPoolMinSize | quote }}
+            - name: DGIP_DB_POOL_MAX_SIZE
+              value: {{ .Values.config.dbPoolMaxSize | quote }}
+            - name: DGIP_CATALOG_POLL_SECONDS
+              value: {{ .Values.config.catalogPollSeconds | quote }}
+            - name: DGIP_INITIAL_BOOTSTRAP_URL
+              value: {{ .Values.config.initialBootstrapUrl | quote }}
+            - name: DGIP_INITIAL_SNAPSHOT_RETENTION
+              value: {{ .Values.config.initialSnapshotRetention | quote }}
+            - name: DGIP_CORS_ALLOW_ORIGINS
+              value: {{ .Values.config.corsAllowOrigins | quote }}
+            - name: DGIP_CACHE_DIR
+              value: "/tmp/dgip-cache"
+            {{- with .Values.config.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            # Writable scratch directory on top of the read-only root filesystem
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            {{- if .Values.tmpVolume.medium }}
+            medium: {{ .Values.tmpVolume.medium | quote }}
+            {{- end }}
+            {{- if .Values.tmpVolume.sizeLimit }}
+            sizeLimit: {{ .Values.tmpVolume.sizeLimit | quote }}
+            {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

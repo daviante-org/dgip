@@ -1,0 +1,127 @@
+# ==============================================================================
+# DGIP Continuous Integration Workflow
+# ==============================================================================
+# Validates on every push and pull request to `main`:
+#   1. Rust compiler checks (`cargo test --locked`) across all 15 unit & contract suites.
+#   2. Hardened `FROM scratch` container build (`Dockerfile`, static musl, UID 10001:0).
+#   3. Runtime CLI smoke checks under `--read-only` rootfs and Red Hat OpenShift
+#      `restricted-v2` SCC arbitrary UID (`1000670000:0`).
+#   4. Trivy container vulnerability, secret, and IaC security gate (CRITICAL/HIGH = fail).
+#   5. Strict Helm chart linting (`helm lint --strict`) and template rendering
+#      across Kubernetes, OpenShift, and external-PostgreSQL profiles.
+# ==============================================================================
+name: ci
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  container-and-tests:
+    name: Build Container, Test & Security Scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry & build artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run Rust unit, MMDB v2.0, HTTP & OpenAPI parity test suites
+        run: cargo test --locked -- --nocapture
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build hardened FROM scratch container image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: dgip:ci
+          cache-from: type=gha,scope=dgip-amd64
+          cache-to: type=gha,mode=max,scope=dgip-amd64
+
+      - name: Verify scratch container CLI under UID 10001 & read-only rootfs
+        run: |
+          docker run --rm \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges:true \
+            dgip:ci dgip --version
+          docker run --rm \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges:true \
+            dgip:ci dgip --help >/dev/null
+
+      - name: Verify OpenShift restricted-v2 SCC arbitrary UID (1000670000:0)
+        run: |
+          docker run --rm \
+            --user 1000670000:0 \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges:true \
+            dgip:ci dgip --version
+
+      - name: Trivy vulnerability, secret & IaC security gate (CRITICAL/HIGH)
+        run: |
+          mkdir -p /tmp/trivy-scan
+          docker save -o /tmp/trivy-scan/dgip-ci.tar dgip:ci
+          docker run --rm \
+            -v /tmp/trivy-scan:/scan:ro \
+            ghcr.io/aquasecurity/trivy:0.76.1 image \
+            --input /scan/dgip-ci.tar \
+            --scanners vuln,secret,misconfig \
+            --severity CRITICAL,HIGH \
+            --exit-code 1
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/repo:ro" \
+            ghcr.io/aquasecurity/trivy:0.76.1 fs /repo \
+            --scanners vuln,secret,misconfig \
+            --severity CRITICAL,HIGH \
+            --exit-code 1
+
+  helm-and-manifests:
+    name: Lint & Render Helm Chart
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
+
+      - name: Run strict Helm chart lint
+        run: helm lint charts/dgip --strict
+
+      - name: Render Kubernetes, OpenShift, and External-DB profiles
+        run: |
+          # 1. Default Kubernetes profile
+          helm template dgip charts/dgip --namespace dgip > /tmp/k8s-default.yaml
+
+          # 2. Red Hat OpenShift profile (restricted-v2 SCC + Route + Swagger disabled)
+          helm template dgip charts/dgip --namespace dgip \
+            --set openshift.enabled=true \
+            --set openshift.route.enabled=true \
+            --set openshift.route.host=dgip.daviante.org \
+            --set swagger.enabled=false > /tmp/openshift.yaml
+
+          # 3. External HA PostgreSQL profile
+          helm template dgip charts/dgip --namespace dgip \
+            --set database.internal.enabled=false \
+            --set database.external.existingSecret=external-pg-secret > /tmp/external-db.yaml

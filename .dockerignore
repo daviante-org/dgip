@@ -1,0 +1,19 @@
+# Version control & CI workflows
+.git
+.github
+.gitignore
+.dockerignore
+
+# Local Rust build artifacts
+target
+
+# Local environment secrets & deployment manifests/charts (not needed inside image;
+# note that `assets/` and `openapi.yaml` ARE intentionally included in the image)
+.env
+.env.example
+charts
+deploy
+docs
+README.md
+LICENSE
+compose.yaml

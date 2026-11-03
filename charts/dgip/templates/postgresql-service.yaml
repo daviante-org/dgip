@@ -1,0 +1,19 @@
+{{- if .Values.database.internal.enabled -}}
+# Headless / ClusterIP Service for the bundled PostgreSQL 17 StatefulSet.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dgip.postgresql.fullname" . }}
+  labels:
+    {{- include "dgip.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  type: ClusterIP
+  ports:
+    - name: postgresql
+      port: 5432
+      targetPort: postgresql
+      protocol: TCP
+  selector:
+    {{- include "dgip.postgresql.selectorLabels" . | nindent 4 }}
+{{- end }}

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="fav-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F43F5E" />
+      <stop offset="55%" stop-color="#E11D48" />
+      <stop offset="100%" stop-color="#9F1239" />
+    </linearGradient>
+    <linearGradient id="fav-pin-l" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#FFE4E6" />
+    </linearGradient>
+    <linearGradient id="fav-pin-r" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FECDD3" />
+      <stop offset="100%" stop-color="#FDA4AF" />
+    </linearGradient>
+  </defs>
+
+  <!-- Full-Bleed App Squircle -->
+  <rect width="64" height="64" rx="16" fill="url(#fav-bg)" />
+
+  <!-- Bold Coordinate Target Ring at Base -->
+  <ellipse cx="32" cy="50" rx="16" ry="5.5" fill="none" stroke="#FDA4AF" stroke-opacity="0.65" stroke-width="3" />
+
+  <!-- High-Contrast 3D Split-Facet Geo Pin -->
+  <g>
+    <!-- Left Illuminated Facet -->
+    <path d="M 32,8 C 20.5,8 13,16.2 13,26.5 C 13,38.5 32,52 32,52 L 32,8 Z" fill="url(#fav-pin-l)" />
+
+    <!-- Right Shaded Facet -->
+    <path d="M 32,8 C 43.5,8 51,16.2 51,26.5 C 51,38.5 32,52 32,52 L 32,8 Z" fill="url(#fav-pin-r)" />
+
+    <!-- Center Node Cutout -->
+    <circle cx="32" cy="26" r="8" fill="#881337" />
+
+    <!-- Center IP Beacon -->
+    <circle cx="32" cy="26" r="3.5" fill="#FFFFFF" />
+  </g>
+</svg>

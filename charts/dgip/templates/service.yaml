@@ -1,0 +1,20 @@
+# Kubernetes Service exposing the DGIP HTTP API (default port 8090).
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dgip.fullname" . }}
+  labels:
+    {{- include "dgip.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "dgip.selectorLabels" . | nindent 4 }}

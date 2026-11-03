@@ -1,0 +1,14 @@
+{{- if .Values.pdb.enabled -}}
+# PodDisruptionBudget preserving availability during node drains and cluster upgrades.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "dgip.fullname" . }}
+  labels:
+    {{- include "dgip.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "dgip.selectorLabels" . | nindent 6 }}
+{{- end }}

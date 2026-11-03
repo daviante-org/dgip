@@ -1,0 +1,34 @@
+DGIP ({{ .Chart.AppVersion }}) has been deployed to namespace `{{ .Release.Namespace }}`.
+
+1. Verify Readiness (first-boot HTTPS bootstrap from daviante-org/dgip-data takes ~30s):
+{{- if .Values.openshift.enabled }}
+   oc -n {{ .Release.Namespace }} rollout status deploy/{{ include "dgip.fullname" . }}
+{{- else }}
+   kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "dgip.fullname" . }}
+{{- end }}
+
+2. Access the API & Interactive Documentation:
+{{- if .Values.openshift.route.enabled }}
+   OpenShift Route enabled{{ if .Values.openshift.route.host }}: https://{{ .Values.openshift.route.host }}{{ else }} (run `oc -n {{ .Release.Namespace }} get route {{ include "dgip.fullname" . }}`){{ end }}
+{{- else if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}
+{{- end }}
+{{- else }}
+   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "dgip.fullname" . }} 8090:{{ .Values.service.port }}
+   curl http://127.0.0.1:8090/v1/ip/8.8.8.8
+{{- end }}
+{{- if .Values.swagger.enabled }}
+   Branded Swagger UI: ENABLED at `/docs` (OpenAPI 3.1 JSON at `/openapi.json`)
+{{- else }}
+   Branded Swagger UI: DISABLED (`swagger.enabled=false`)
+{{- end }}
+
+3. Operational Management (`dgip` CLI — HTTP API is 100% read-only):
+{{- if .Values.openshift.enabled }}
+   oc -n {{ .Release.Namespace }} exec deploy/{{ include "dgip.fullname" . }} -- dgip status
+   oc -n {{ .Release.Namespace }} exec deploy/{{ include "dgip.fullname" . }} -- dgip sync
+{{- else }}
+   kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "dgip.fullname" . }} -- dgip status
+   kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "dgip.fullname" . }} -- dgip sync
+{{- end }}

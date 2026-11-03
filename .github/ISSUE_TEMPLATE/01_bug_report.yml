@@ -1,0 +1,94 @@
+name: Bug Report
+description: Report a reproducible defect in the DGIP HTTP API, dgip CLI, dataset compiler, container image, or Helm chart.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting an issue with **DGIP**.
+        - **Security vulnerabilities**: Do **not** file a public issue — use [Private Vulnerability Reporting](https://github.com/daviante-org/dgip/security/advisories/new) or email `code@daviante.org`.
+        - **Secrets**: Never include database passwords (`DGIP_DATABASE_URL`), internal keys, or sensitive hostnames.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      description: Which part of DGIP is affected?
+      options:
+        - HTTP API (/v1/ip/*, /v1/snapshots/*, /healthz/*)
+        - dgip Operational CLI (status, sync, release, config, feed, host)
+        - RIR / RIPE RIS Sync & Compiler
+        - MMDB v2.0 / CSV / Geofeed Artifacts
+        - Docker / Podman / Compose
+        - Helm Chart / Kubernetes / OpenShift
+        - Documentation / OpenAPI Spec
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Environment
+      description: Where did you observe this issue?
+      options:
+        - Hosted Production API (https://dgip.daviante.org)
+        - Self-Hosted — Docker / Podman
+        - Self-Hosted — Kubernetes (Helm)
+        - Self-Hosted — Red Hat OpenShift
+        - Offline Compiler (dgip build-release)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: DGIP Version / Image Tag / Snapshot Version
+      description: Output of `dgip --version`, container digest, Helm chart version, or `snapshot_version`.
+      placeholder: e.g. 1.0.0, ghcr.io/daviante-org/dgip:latest, or v2026.W45
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Clear, concise description of the bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Exact commands, HTTP requests, or configuration needed to reproduce the behavior.
+      placeholder: |
+        1. Run `curl -i https://dgip.daviante.org/v1/ip/1.1.1.1`
+        2. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostic Output / Logs
+      description: Optional output from `dgip status --json`, HTTP response payload, or container logs (redact credentials first).
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I checked [docs/TROUBLESHOOTING.md](https://github.com/daviante-org/dgip/blob/main/docs/TROUBLESHOOTING.md) and existing issues before opening this report.
+          required: true
+        - label: I confirmed this report contains no credentials, database URLs, or security vulnerabilities.
+          required: true

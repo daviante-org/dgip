@@ -1,0 +1,74 @@
+# ==============================================================================
+# DGIP — Docker Compose & Podman Compose Stack
+# ==============================================================================
+# Compatible with both:
+#   - Docker:  docker compose up -d
+#   - Podman:  podman compose up -d
+#
+# Pulls the official versioned image from GitHub Container Registry
+# (`ghcr.io/daviante-org/dgip:1.0.0`) or builds locally when `--build` is passed.
+# ==============================================================================
+
+services:
+  # Primary PostgreSQL database storing GiST IPv4/IPv6 range indexes,
+  # runtime configuration catalog tables, and weekly snapshot BYTEA blobs.
+  postgres:
+    image: docker.io/library/postgres:18.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dgip
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dgip-local-dev}
+      POSTGRES_DB: dgip
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - dgip_pgdata:/var/lib/postgresql/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /var/run/postgresql:rw,noexec,nosuid,size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dgip -d dgip"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Hardened DGIP Rust lookup, registry synchronization, and snapshot service.
+  dgip:
+    image: ghcr.io/daviante-org/dgip:1.0.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${DGIP_PORT:-8090}:8090"
+    environment:
+      DGIP_DATABASE_URL: postgresql://dgip:${POSTGRES_PASSWORD:-dgip-local-dev}@postgres:5432/dgip
+      DGIP_DB_POOL_MIN_SIZE: ${DGIP_DB_POOL_MIN_SIZE:-2}
+      DGIP_DB_POOL_MAX_SIZE: ${DGIP_DB_POOL_MAX_SIZE:-16}
+      DGIP_SWAGGER_ENABLED: ${DGIP_SWAGGER_ENABLED:-true}
+      DGIP_CACHE_DIR: /var/cache/dgip
+      DGIP_INITIAL_BOOTSTRAP_URL: ${DGIP_INITIAL_BOOTSTRAP_URL:-https://github.com/daviante-org/dgip-data/releases/latest/download/bundle.tar.gz}
+      DGIP_INITIAL_SNAPSHOT_RETENTION: ${DGIP_INITIAL_SNAPSHOT_RETENTION:-5}
+      DGIP_CORS_ALLOW_ORIGINS: ${DGIP_CORS_ALLOW_ORIGINS:-*}
+    volumes:
+      - dgip_cache:/var/cache/dgip
+    # Container runtime hardening: immutable `FROM scratch` root filesystem,
+    # non-executable ephemeral /tmp tmpfs, and zero Linux capabilities.
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  dgip_pgdata:
+  dgip_cache:

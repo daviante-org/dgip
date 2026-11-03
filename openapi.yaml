@@ -1,0 +1,2572 @@
+openapi: 3.1.0
+info:
+  title: DGIP Network Intelligence API
+  summary: Self-hosted 4-Layer IPv4 & IPv6 Network, Geolocation, RPKI & Security Intelligence API by Daviante
+  description: Self-hosted 4-layer IP intelligence API (ASN, RPKI route validation, RFC 8805 sub-national
+    geolocation, cloud/CDN/Tor/privacy-relay/threat classification) compiled directly from official RIRs,
+    RIPE RIS, RPKI VRPs, provider geofeeds, and open security feeds.
+  version: 1.0.0
+  termsOfService: https://github.com/daviante-org/dgip-data/blob/main/docs/TERMS.md
+  contact:
+    name: Daviante
+    url: https://daviante.org
+    email: code@daviante.org
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  x-logo:
+    url: /docs/assets/logo.svg
+    altText: dgip by Daviante
+paths:
+  /healthz/live:
+    get:
+      tags:
+      - Health
+      summary: Process liveness probe
+      description: Lightweight in-process check confirming the ASGI HTTP server is running.
+      operationId: health_live_healthz_live_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthLiveResponse'
+  /healthz/ready:
+    get:
+      tags:
+      - Health
+      summary: PostgreSQL and active lookup slot readiness probe
+      description: Verifies PostgreSQL connectivity and confirms that an active Blue/Green GiST lookup
+        slot (`a` or `b`) is populated and ready to serve sub-millisecond queries.
+      operationId: health_ready_healthz_ready_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthReadyResponse'
+        '503':
+          description: PostgreSQL unreachable or initial IP lookup slot still loading.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Dataset Not Ready
+                status: 503
+                detail: Initial IP lookup slot is still loading.
+                instance: /healthz/ready
+  /v1/ip/me:
+    get:
+      tags:
+      - IP Lookup
+      summary: Inspect caller's own IPv4 or IPv6 intelligence
+      description: Resolves 4-layer ASN, RPKI ROV status, RFC 8805 sub-national geolocation, and cloud/CDN/Tor/threat
+        intelligence for the connecting client IP (honoring `X-Forwarded-For` right-to-left only across
+        configured `trusted_proxies`).
+      operationId: lookup_caller_ip_v1_ip_me_get
+      responses:
+        '200':
+          description: 4-layer IP intelligence for the connecting caller.
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 120
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current 60-second window.
+              schema:
+                type: integer
+                example: 119
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 42
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IPLookupResponse'
+              examples:
+                aws_mumbai_geofeed:
+                  summary: AWS ap-south-1 IPv4 (RFC 8805 Geofeed + RPKI Valid + Cloud)
+                  description: Globally routable IPv4 resolved to Mumbai, India via AWS physical geofeed
+                    with RPKI valid AS16509.
+                  value:
+                    ip: 3.6.0.1
+                    ip_version: 4
+                    is_ipv4_mapped: false
+                    is_bogon: false
+                    bogon_type: null
+                    found: true
+                    asn:
+                      number: 16509
+                      code: AS16509
+                      organization: Amazon.com, Inc.
+                      network_type: hosting
+                      rpki_status: valid
+                      range_start: 3.6.0.0
+                      range_end: 3.7.255.255
+                    geo:
+                      country_code: IN
+                      country_name: India
+                      continent_code: AS
+                      continent_name: Asia
+                      region_code: IN-MH
+                      city: Mumbai
+                      source: geofeed
+                      range_start: 3.6.0.0
+                      range_end: 3.7.255.255
+                    security:
+                      is_cloud: true
+                      is_datacenter: true
+                      is_cdn: false
+                      is_tor_exit: false
+                      is_privacy_relay: false
+                      is_threat: false
+                      provider: aws
+                      threat_feeds: []
+                      range_start: 3.6.0.0
+                      range_end: 3.7.255.255
+                    snapshot_version: v2026.W45.1
+                    live_updated_at: '2026-11-02T19:00:00Z'
+                cloudflare_ipv6_cdn:
+                  summary: Cloudflare Anycast IPv6 (CDN + RPKI Valid)
+                  description: Globally routable IPv6 resolved to AS13335 Cloudflare CDN.
+                  value:
+                    ip: 2606:4700:4700::1111
+                    ip_version: 6
+                    is_ipv4_mapped: false
+                    is_bogon: false
+                    bogon_type: null
+                    found: true
+                    asn:
+                      number: 13335
+                      code: AS13335
+                      organization: Cloudflare, Inc.
+                      network_type: cdn
+                      rpki_status: valid
+                      range_start: '2606:4700:4700::'
+                      range_end: 2606:4700:4700:ffff:ffff:ffff:ffff:ffff
+                    geo:
+                      country_code: US
+                      country_name: United States
+                      continent_code: NA
+                      continent_name: North America
+                      region_code: null
+                      city: null
+                      source: rir
+                      range_start: '2606:4700::'
+                      range_end: 2606:4700:ffff:ffff:ffff:ffff:ffff:ffff
+                    security:
+                      is_cloud: true
+                      is_datacenter: false
+                      is_cdn: true
+                      is_tor_exit: false
+                      is_privacy_relay: false
+                      is_threat: false
+                      provider: cloudflare
+                      threat_feeds: []
+                      range_start: '2606:4700::'
+                      range_end: 2606:4700:7fff:ffff:ffff:ffff:ffff:ffff
+                    snapshot_version: v2026.W45.1
+                    live_updated_at: '2026-11-02T19:00:00Z'
+                threat_listed_c2:
+                  summary: Tor Exit & Threat-Listed IPv4 (Feodo C2)
+                  description: Public IPv4 flagged simultaneously as an active Tor exit node and Feodo
+                    C2 threat host.
+                  value:
+                    ip: 185.220.101.1
+                    ip_version: 4
+                    is_ipv4_mapped: false
+                    is_bogon: false
+                    bogon_type: null
+                    found: true
+                    asn:
+                      number: 205100
+                      code: AS205100
+                      organization: F3 Netze e.V.
+                      network_type: isp
+                      rpki_status: valid
+                      range_start: 185.220.101.0
+                      range_end: 185.220.101.255
+                    geo:
+                      country_code: DE
+                      country_name: Germany
+                      continent_code: EU
+                      continent_name: Europe
+                      region_code: DE-BE
+                      city: Berlin
+                      source: geofeed
+                      range_start: 185.220.101.0
+                      range_end: 185.220.101.255
+                    security:
+                      is_cloud: false
+                      is_datacenter: false
+                      is_cdn: false
+                      is_tor_exit: true
+                      is_privacy_relay: false
+                      is_threat: true
+                      provider: null
+                      threat_feeds:
+                      - feodo_c2
+                      range_start: 185.220.101.1
+                      range_end: 185.220.101.1
+                    snapshot_version: v2026.W45.1
+                    live_updated_at: '2026-11-02T19:00:00Z'
+                rfc1918_private_bogon:
+                  summary: RFC 1918 Private Address (Bogon Classification)
+                  description: Non-globally-routable special-purpose address classified in memory without
+                    querying BGP/Geo tables.
+                  value:
+                    ip: 192.168.1.1
+                    ip_version: 4
+                    is_ipv4_mapped: false
+                    is_bogon: true
+                    bogon_type: private
+                    found: false
+                    asn: null
+                    geo: null
+                    security: null
+                    snapshot_version: v2026.W45.1
+                    live_updated_at: '2026-11-02T19:00:00Z'
+        '429':
+          description: Sliding-window per-client IP rate limit exceeded.
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 120
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current window.
+              schema:
+                type: integer
+                example: 0
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 18
+            Retry-After:
+              description: Seconds to wait before retrying the request.
+              schema:
+                type: integer
+                example: 18
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Too Many Requests
+                status: 429
+                detail: Rate limit exceeded. Retry after the indicated window.
+                instance: /v1/ip/me
+        '503':
+          description: IP lookup tables are still initializing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Dataset Not Ready
+                status: 503
+                detail: IP lookup tables are still initializing.
+                instance: /v1/ip/me
+  /v1/ip/{ip}:
+    get:
+      tags:
+      - IP Lookup
+      summary: Lookup 4-layer intelligence for a single IPv4 or IPv6 address
+      description: Queries PostgreSQL GiST `int8range` / `numrange` tables across ASN + RPKI ROV, RIR
+        + RFC 8805 Geofeed geolocation, and cloud/CDN/privacy-relay/Tor/threat layers. IPv4-mapped IPv6
+        literals (`::ffff:3.6.0.1`) are automatically unwrapped.
+      operationId: lookup_single_ip_v1_ip__ip__get
+      parameters:
+      - name: ip
+        in: path
+        required: true
+        schema:
+          type: string
+          description: IPv4 or IPv6 address literal (no CIDR prefix length or hostname).
+          title: Ip
+        description: IPv4 or IPv6 address literal (no CIDR prefix length or hostname).
+        examples:
+          aws_mumbai_ipv4:
+            summary: AWS ap-south-1 Mumbai IPv4 (Geofeed + RPKI Valid)
+            value: 3.6.0.1
+          cloudflare_dns_ipv6:
+            summary: Cloudflare Anycast CDN IPv6
+            value: 2606:4700:4700::1111
+          icloud_relay_ipv4:
+            summary: Cloudflare / Apple iCloud Relay range IPv4
+            value: 104.28.28.0
+          rfc1918_bogon:
+            summary: RFC 1918 Private IPv4 (Bogon)
+            value: 192.168.1.1
+      responses:
+        '200':
+          description: 4-layer IP intelligence lookup result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IPLookupResponse'
+              examples:
+                aws_mumbai_geofeed:
+                  summary: AWS ap-south-1 IPv4 (RFC 8805 Geofeed + RPKI Valid + Cloud)
+                  description: Globally routable IPv4 resolved to Mumbai, India via AWS physical geofeed
+                    with RPKI valid AS16509.
+                  value:
+                    ip: 3.6.0.1
+                    ip_version: 4
+                    is_ipv4_mapped: false
+                    is_bogon: false
+                    bogon_type: null
+                    found: true
+                    asn:
+                      number: 16509
+                      code: AS16509
+                      organization: Amazon.com, Inc.
+                      network_type: hosting
+                      rpki_status: valid
+                      range_start: 3.6.0.0
+                      range_end: 3.7.255.255
+                    geo:
+                      country_code: IN
+                      country_name: India
+                      continent_code: AS
+                      continent_name: Asia
+                      region_code: IN-MH
+                      city: Mumbai
+                      source: geofeed
+                      range_start: 3.6.0.0
+                      range_end: 3.7.255.255
+                    security:
+                      is_cloud: true
+                      is_datacenter: true
+                      is_cdn: false
+                      is_tor_exit: false
+                      is_privacy_relay: false
+                      is_threat: false
+                      provider: aws
+                      threat_feeds: []
+                      range_start: 3.6.0.0
+                      range_end: 3.7.255.255
+                    snapshot_version: v2026.W45.1
+                    live_updated_at: '2026-11-02T19:00:00Z'
+                cloudflare_ipv6_cdn:
+                  summary: Cloudflare Anycast IPv6 (CDN + RPKI Valid)
+                  description: Globally routable IPv6 resolved to AS13335 Cloudflare CDN.
+                  value:
+                    ip: 2606:4700:4700::1111
+                    ip_version: 6
+                    is_ipv4_mapped: false
+                    is_bogon: false
+                    bogon_type: null
+                    found: true
+                    asn:
+                      number: 13335
+                      code: AS13335
+                      organization: Cloudflare, Inc.
+                      network_type: cdn
+                      rpki_status: valid
+                      range_start: '2606:4700:4700::'
+                      range_end: 2606:4700:4700:ffff:ffff:ffff:ffff:ffff
+                    geo:
+                      country_code: US
+                      country_name: United States
+                      continent_code: NA
+                      continent_name: North America
+                      region_code: null
+                      city: null
+                      source: rir
+                      range_start: '2606:4700::'
+                      range_end: 2606:4700:ffff:ffff:ffff:ffff:ffff:ffff
+                    security:
+                      is_cloud: true
+                      is_datacenter: false
+                      is_cdn: true
+                      is_tor_exit: false
+                      is_privacy_relay: false
+                      is_threat: false
+                      provider: cloudflare
+                      threat_feeds: []
+                      range_start: '2606:4700::'
+                      range_end: 2606:4700:7fff:ffff:ffff:ffff:ffff:ffff
+                    snapshot_version: v2026.W45.1
+                    live_updated_at: '2026-11-02T19:00:00Z'
+                threat_listed_c2:
+                  summary: Tor Exit & Threat-Listed IPv4 (Feodo C2)
+                  description: Public IPv4 flagged simultaneously as an active Tor exit node and Feodo
+                    C2 threat host.
+                  value:
+                    ip: 185.220.101.1
+                    ip_version: 4
+                    is_ipv4_mapped: false
+                    is_bogon: false
+                    bogon_type: null
+                    found: true
+                    asn:
+                      number: 205100
+                      code: AS205100
+                      organization: F3 Netze e.V.
+                      network_type: isp
+                      rpki_status: valid
+                      range_start: 185.220.101.0
+                      range_end: 185.220.101.255
+                    geo:
+                      country_code: DE
+                      country_name: Germany
+                      continent_code: EU
+                      continent_name: Europe
+                      region_code: DE-BE
+                      city: Berlin
+                      source: geofeed
+                      range_start: 185.220.101.0
+                      range_end: 185.220.101.255
+                    security:
+                      is_cloud: false
+                      is_datacenter: false
+                      is_cdn: false
+                      is_tor_exit: true
+                      is_privacy_relay: false
+                      is_threat: true
+                      provider: null
+                      threat_feeds:
+                      - feodo_c2
+                      range_start: 185.220.101.1
+                      range_end: 185.220.101.1
+                    snapshot_version: v2026.W45.1
+                    live_updated_at: '2026-11-02T19:00:00Z'
+                rfc1918_private_bogon:
+                  summary: RFC 1918 Private Address (Bogon Classification)
+                  description: Non-globally-routable special-purpose address classified in memory without
+                    querying BGP/Geo tables.
+                  value:
+                    ip: 192.168.1.1
+                    ip_version: 4
+                    is_ipv4_mapped: false
+                    is_bogon: true
+                    bogon_type: private
+                    found: false
+                    asn: null
+                    geo: null
+                    security: null
+                    snapshot_version: v2026.W45.1
+                    live_updated_at: '2026-11-02T19:00:00Z'
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 120
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current 60-second window.
+              schema:
+                type: integer
+                example: 119
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 42
+        '400':
+          description: Malformed IP literal (DNS hostnames, CIDR masks, and zone IDs are rejected).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Invalid IP Address
+                status: 400
+                detail: 'Invalid IPv4 or IPv6 address literal: ''example.com'''
+                instance: /v1/ip/example.com
+        '422':
+          description: Path parameter validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Unprocessable Content
+                status: 422
+                detail: '[{''type'': ''string_type'', ''loc'': (''path'', ''ip''), ''msg'': ''Input should
+                  be a valid string''}]'
+                instance: /v1/ip/
+        '429':
+          description: Sliding-window per-client IP rate limit exceeded.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Too Many Requests
+                status: 429
+                detail: Rate limit exceeded. Retry after the indicated window.
+                instance: /v1/ip/3.6.0.1
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 120
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current window.
+              schema:
+                type: integer
+                example: 0
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 18
+            Retry-After:
+              description: Seconds to wait before retrying the request.
+              schema:
+                type: integer
+                example: 18
+        '503':
+          description: IP lookup tables are still initializing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Dataset Not Ready
+                status: 503
+                detail: IP lookup tables are still initializing.
+                instance: /v1/ip/3.6.0.1
+  /v1/ip/batch:
+    post:
+      tags:
+      - IP Lookup
+      summary: Bulk lookup up to 1,000 IPv4 and IPv6 addresses in one query
+      description: Deduplicates unique IPv4 and IPv6 targets in memory, executes a single lateral GiST
+        query per address family, and returns results in exact caller order. Malformed entries return
+        `ok=false` with a per-item `error` rather than failing the whole batch.
+      operationId: lookup_batch_ips_v1_ip_batch_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchIPRequest'
+              description: JSON object containing 1–1,000 IPv4/IPv6 address strings.
+            examples:
+              mixed_dual_stack:
+                summary: Mixed IPv4, IPv6, Bogon & Invalid Input
+                description: Demonstrates dual-stack lookup, bogon classification, and non-fatal per-item
+                  error reporting.
+                value:
+                  ips:
+                  - 3.6.0.1
+                  - 2606:4700:4700::1111
+                  - 192.168.1.1
+                  - not-an-ip
+              public_resolvers:
+                summary: Public Anycast DNS Resolvers (IPv4 & IPv6)
+                value:
+                  ips:
+                  - 1.1.1.1
+                  - 8.8.8.8
+                  - 9.9.9.9
+                  - 2001:4860:4860::8888
+        required: true
+      responses:
+        '200':
+          description: Ordered bulk IP intelligence results.
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 120
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current 60-second window.
+              schema:
+                type: integer
+                example: 119
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 42
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchIPResponse'
+        '400':
+          description: Configured `batch_max_ips` runtime limit exceeded.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Batch Size Exceeded
+                status: 400
+                detail: Maximum batch size is 1000 IP addresses.
+                instance: /v1/ip/batch
+        '413':
+          description: Streaming HTTP request body exceeded `max_request_body_bytes` (default 256 KiB).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Payload Too Large
+                status: 413
+                detail: Request body exceeds maximum allowed size of 262144 bytes.
+                instance: /v1/ip/batch
+        '422':
+          description: Malformed JSON body or empty `ips` array.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Unprocessable Content
+                status: 422
+                detail: '[{''type'': ''too_short'', ''loc'': (''body'', ''ips''), ''msg'': ''List should
+                  have at least 1 item after validation, not 0''}]'
+                instance: /v1/ip/batch
+        '429':
+          description: Sliding-window per-client IP rate limit exceeded.
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 120
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current window.
+              schema:
+                type: integer
+                example: 0
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 18
+            Retry-After:
+              description: Seconds to wait before retrying the request.
+              schema:
+                type: integer
+                example: 18
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Too Many Requests
+                status: 429
+                detail: Rate limit exceeded. Retry after the indicated window.
+                instance: /v1/ip/batch
+        '503':
+          description: IP lookup tables are still initializing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Dataset Not Ready
+                status: 503
+                detail: IP lookup tables are still initializing.
+                instance: /v1/ip/batch
+  /v1/snapshots:
+    get:
+      tags:
+      - Snapshots
+      summary: List dataset snapshot releases
+      description: Returns compiled dataset snapshot history ordered newest first, including active slot
+        version, blob retention policy (`has_blobs`), row counts, and SHA-256 digests.
+      operationId: list_snapshots_v1_snapshots_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: Maximum number of recent snapshot releases to return (`1`–`100`).
+          default: 20
+          title: Limit
+        description: Maximum number of recent snapshot releases to return (`1`–`100`).
+        examples:
+          default_page:
+            summary: Default (20 releases)
+            value: 20
+          retained_only:
+            summary: Top 5 retained releases
+            value: 5
+      responses:
+        '200':
+          description: Paginated dataset snapshot release list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotListResponse'
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 120
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current 60-second window.
+              schema:
+                type: integer
+                example: 119
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 42
+        '422':
+          description: Query parameter `limit` outside `1..100`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Unprocessable Content
+                status: 422
+                detail: '[{''type'': ''less_than_equal'', ''loc'': (''query'', ''limit''), ''msg'': ''Input
+                  should be less than or equal to 100''}]'
+                instance: /v1/snapshots
+        '429':
+          description: Sliding-window per-client IP rate limit exceeded.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Too Many Requests
+                status: 429
+                detail: Rate limit exceeded. Retry after the indicated window.
+                instance: /v1/snapshots
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 120
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current window.
+              schema:
+                type: integer
+                example: 0
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 18
+            Retry-After:
+              description: Seconds to wait before retrying the request.
+              schema:
+                type: integer
+                example: 18
+  /v1/snapshots/latest:
+    get:
+      tags:
+      - Snapshots
+      summary: Get latest dataset snapshot metadata and update check
+      description: Returns metadata, checksums, row counts, and release notes for the newest compiled
+        dataset snapshot. Pass `?current_version=<tag>` to compute `update_available`.
+      operationId: get_latest_snapshot_v1_snapshots_latest_get
+      parameters:
+      - name: current_version
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+          description: Caller's currently installed snapshot tag to evaluate `update_available`.
+          title: Current Version
+        description: Caller's currently installed snapshot tag to evaluate `update_available`.
+        examples:
+          outdated_client:
+            summary: 'Outdated client (`update_available: true`)'
+            value: v2026.W44
+          up_to_date_client:
+            summary: 'Up-to-date client (`update_available: false`)'
+            value: v2026.W45.1
+      responses:
+        '200':
+          description: Latest dataset snapshot metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotMetadataResponse'
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 120
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current 60-second window.
+              schema:
+                type: integer
+                example: 119
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 42
+            Cache-Control:
+              description: Short-lived public cache header (`public, max-age=300`).
+              schema:
+                type: string
+                example: public, max-age=300
+        '422':
+          description: Query parameter `current_version` exceeds 64 characters.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Unprocessable Content
+                status: 422
+                detail: '[{''type'': ''string_too_long'', ''loc'': (''query'', ''current_version''), ''msg'':
+                  ''String should have at most 64 characters''}]'
+                instance: /v1/snapshots/latest
+        '429':
+          description: Sliding-window per-client IP rate limit exceeded.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Too Many Requests
+                status: 429
+                detail: Rate limit exceeded. Retry after the indicated window.
+                instance: /v1/snapshots/latest
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 120
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current window.
+              schema:
+                type: integer
+                example: 0
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 18
+            Retry-After:
+              description: Seconds to wait before retrying the request.
+              schema:
+                type: integer
+                example: 18
+        '503':
+          description: No dataset snapshot has been cut or imported yet.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Snapshot Unavailable
+                status: 503
+                detail: No dataset snapshot has been cut yet.
+                instance: /v1/snapshots/latest
+  /v1/snapshots/{version}:
+    get:
+      tags:
+      - Snapshots
+      summary: Get metadata for a specific snapshot version
+      description: Retrieves full manifest, file digests, row counts, and diff summary for a specific
+        snapshot tag.
+      operationId: get_snapshot_by_version_v1_snapshots__version__get
+      parameters:
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+          description: Snapshot version tag (e.g. `v2026.W45.1`).
+          title: Version
+        description: Snapshot version tag (e.g. `v2026.W45.1`).
+        examples:
+          initial_release:
+            summary: Public release v2026.W45.1
+            value: v2026.W45.1
+      responses:
+        '200':
+          description: Snapshot release metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotMetadataResponse'
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 120
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current 60-second window.
+              schema:
+                type: integer
+                example: 119
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 42
+        '400':
+          description: Snapshot version tag failed `^[A-Za-z0-9._-]{3,64}$` syntax check.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Invalid Version Tag
+                status: 400
+                detail: 'Malformed snapshot version identifier: ''bad!tag'''
+                instance: /v1/snapshots/bad!tag
+        '404':
+          description: Requested snapshot version does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Snapshot Not Found
+                status: 404
+                detail: Snapshot 'v2025.W01' does not exist.
+                instance: /v1/snapshots/v2025.W01
+        '422':
+          description: Path parameter validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Unprocessable Content
+                status: 422
+                detail: '[{''type'': ''string_type'', ''loc'': (''path'', ''version''), ''msg'': ''Input
+                  should be a valid string''}]'
+                instance: /v1/snapshots/
+        '429':
+          description: Sliding-window per-client IP rate limit exceeded.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Too Many Requests
+                status: 429
+                detail: Rate limit exceeded. Retry after the indicated window.
+                instance: /v1/snapshots/v2026.W45.1
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 120
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current window.
+              schema:
+                type: integer
+                example: 0
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 18
+            Retry-After:
+              description: Seconds to wait before retrying the request.
+              schema:
+                type: integer
+                example: 18
+  /v1/snapshots/{version}/bundle.tar.gz:
+    get:
+      tags:
+      - Snapshots
+      summary: Download complete multi-format snapshot bundle (`bundle.tar.gz`)
+      description: Streams the immutable `bundle.tar.gz` archive containing all 7 `.csv.gz` feeds, all
+        3 `.mmdb` databases, `manifest.json`, and `SHA256SUMS.txt`. Supports conditional `If-None-Match`
+        (`304 Not Modified`) and emits `X-Checksum-Sha256`.
+      operationId: download_snapshot_bundle_v1_snapshots__version__bundle_tar_gz_get
+      parameters:
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+          description: Snapshot version tag (e.g. `v2026.W45.1`).
+          title: Version
+        description: Snapshot version tag (e.g. `v2026.W45.1`).
+        examples:
+          initial_release:
+            summary: Public release v2026.W45.1
+            value: v2026.W45.1
+      responses:
+        '200':
+          description: Immutable gzip-compressed tar archive (`bundle.tar.gz`).
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 120
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current 60-second window.
+              schema:
+                type: integer
+                example: 119
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 42
+            ETag:
+              description: Quoted lowercase SHA-256 digest of the immutable artifact.
+              schema:
+                type: string
+                example: '"a14124a00d72463ef92b4a5e48d2b114c00c88a7d6d51b09892411358a54f903"'
+            X-Checksum-Sha256:
+              description: Unquoted lowercase SHA-256 hex digest of the artifact.
+              schema:
+                type: string
+                example: a14124a00d72463ef92b4a5e48d2b114c00c88a7d6d51b09892411358a54f903
+            Cache-Control:
+              description: Immutable HTTP cache directive (`public, max-age=86400, immutable`).
+              schema:
+                type: string
+                example: public, max-age=86400, immutable
+            Content-Disposition:
+              description: Attachment filename header.
+              schema:
+                type: string
+                example: attachment; filename="bundle.tar.gz"
+          content:
+            application/gzip:
+              schema:
+                type: string
+                format: binary
+        '304':
+          description: Artifact unchanged (`If-None-Match` matched `ETag`).
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 120
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current 60-second window.
+              schema:
+                type: integer
+                example: 119
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 42
+            ETag:
+              description: Quoted lowercase SHA-256 digest of the immutable artifact.
+              schema:
+                type: string
+                example: '"a14124a00d72463ef92b4a5e48d2b114c00c88a7d6d51b09892411358a54f903"'
+            X-Checksum-Sha256:
+              description: Unquoted lowercase SHA-256 hex digest of the artifact.
+              schema:
+                type: string
+                example: a14124a00d72463ef92b4a5e48d2b114c00c88a7d6d51b09892411358a54f903
+            Cache-Control:
+              description: Immutable HTTP cache directive (`public, max-age=86400, immutable`).
+              schema:
+                type: string
+                example: public, max-age=86400, immutable
+            Content-Disposition:
+              description: Attachment filename header.
+              schema:
+                type: string
+                example: attachment; filename="bundle.tar.gz"
+        '400':
+          description: Malformed snapshot version identifier.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Invalid Version Tag
+                status: 400
+                detail: 'Malformed snapshot version identifier: ''bad!tag'''
+                instance: /v1/snapshots/bad!tag/bundle.tar.gz
+        '404':
+          description: Snapshot version was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Snapshot Not Found
+                status: 404
+                detail: Bundle for snapshot 'v2025.W01' was not found.
+                instance: /v1/snapshots/v2025.W01/bundle.tar.gz
+        '410':
+          description: Snapshot metadata exists, but binary blobs were pruned by retention policy.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Snapshot Artifacts Expired
+                status: 410
+                detail: Binary artifacts for 'v2026.W30' have been pruned by retention policy.
+                instance: /v1/snapshots/v2026.W30/bundle.tar.gz
+        '422':
+          description: Path parameter validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Unprocessable Content
+                status: 422
+                detail: '[{''type'': ''string_type'', ''loc'': (''path'', ''version''), ''msg'': ''Input
+                  should be a valid string''}]'
+                instance: /v1/snapshots//bundle.tar.gz
+        '429':
+          description: Sliding-window per-client IP rate limit exceeded.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Too Many Requests
+                status: 429
+                detail: Rate limit exceeded. Retry after the indicated window.
+                instance: /v1/snapshots/v2026.W45.1/bundle.tar.gz
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 20
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current window.
+              schema:
+                type: integer
+                example: 0
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 18
+            Retry-After:
+              description: Seconds to wait before retrying the request.
+              schema:
+                type: integer
+                example: 18
+  /v1/snapshots/{version}/files/{filename}:
+    get:
+      tags:
+      - Snapshots
+      summary: Download an individual snapshot artifact (`.mmdb`, `.csv.gz`, `SHA256SUMS.txt`)
+      description: Streams a single whitelisted file from a retained dataset snapshot with immutable `ETag`
+        and `X-Checksum-Sha256` headers.
+      operationId: download_snapshot_file_v1_snapshots__version__files__filename__get
+      parameters:
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+          description: Snapshot version tag (e.g. `v2026.W45.1`).
+          title: Version
+        description: Snapshot version tag (e.g. `v2026.W45.1`).
+        examples:
+          initial_release:
+            summary: Public release v2026.W45.1
+            value: v2026.W45.1
+      - name: filename
+        in: path
+        required: true
+        schema:
+          type: string
+          description: Whitelisted snapshot artifact filename.
+          title: Filename
+        description: Whitelisted snapshot artifact filename.
+        examples:
+          asn_mmdb:
+            summary: MaxMind MMDB v2.0 — ASN + RPKI + Network Type
+            value: dgip-asn.mmdb
+          country_mmdb:
+            summary: MaxMind MMDB v2.0 — Country + Geofeed Region/City
+            value: dgip-country.mmdb
+          security_mmdb:
+            summary: MaxMind MMDB v2.0 — Cloud, CDN, Tor & Threat
+            value: dgip-security.mmdb
+          geofeed_csv:
+            summary: RFC 8805 Sub-National Geofeed CSV (gzip)
+            value: dgip-geofeed.csv.gz
+          country_ipv4_csv:
+            summary: IPv4 Country + Geofeed Intervals CSV (gzip)
+            value: dgip-country-ipv4.csv.gz
+          sha256sums:
+            summary: SHA-256 Checksum Manifest
+            value: SHA256SUMS.txt
+      responses:
+        '200':
+          description: Individual binary or text snapshot artifact.
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 120
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current 60-second window.
+              schema:
+                type: integer
+                example: 119
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 42
+            ETag:
+              description: Quoted lowercase SHA-256 digest of the immutable artifact.
+              schema:
+                type: string
+                example: '"a14124a00d72463ef92b4a5e48d2b114c00c88a7d6d51b09892411358a54f903"'
+            X-Checksum-Sha256:
+              description: Unquoted lowercase SHA-256 hex digest of the artifact.
+              schema:
+                type: string
+                example: a14124a00d72463ef92b4a5e48d2b114c00c88a7d6d51b09892411358a54f903
+            Cache-Control:
+              description: Immutable HTTP cache directive (`public, max-age=86400, immutable`).
+              schema:
+                type: string
+                example: public, max-age=86400, immutable
+            Content-Disposition:
+              description: Attachment filename header.
+              schema:
+                type: string
+                example: attachment; filename="bundle.tar.gz"
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            application/gzip:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: object
+            text/plain:
+              schema:
+                type: string
+                example: '08ea1feb59890f448fb91a32c8b02d39ef27e4c146c9b8f398e0f10d601dc91e  dgip-asn-ipv4.csv.gz
+
+                  bc3391d9ad3bb19e845c90823a01f742764f1c9a3d5f199f2c89715d911033a1  dgip-asn.mmdb
+
+                  '
+        '304':
+          description: Artifact unchanged (`If-None-Match` matched `ETag`).
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 120
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current 60-second window.
+              schema:
+                type: integer
+                example: 119
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 42
+            ETag:
+              description: Quoted lowercase SHA-256 digest of the immutable artifact.
+              schema:
+                type: string
+                example: '"a14124a00d72463ef92b4a5e48d2b114c00c88a7d6d51b09892411358a54f903"'
+            X-Checksum-Sha256:
+              description: Unquoted lowercase SHA-256 hex digest of the artifact.
+              schema:
+                type: string
+                example: a14124a00d72463ef92b4a5e48d2b114c00c88a7d6d51b09892411358a54f903
+            Cache-Control:
+              description: Immutable HTTP cache directive (`public, max-age=86400, immutable`).
+              schema:
+                type: string
+                example: public, max-age=86400, immutable
+            Content-Disposition:
+              description: Attachment filename header.
+              schema:
+                type: string
+                example: attachment; filename="bundle.tar.gz"
+        '400':
+          description: Malformed snapshot version identifier.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Invalid Version Tag
+                status: 400
+                detail: 'Malformed snapshot version identifier: ''bad!tag'''
+                instance: /v1/snapshots/bad!tag/files/dgip-asn.mmdb
+        '404':
+          description: Unknown artifact filename or snapshot version not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Artifact Not Found
+                status: 404
+                detail: 'Unknown snapshot artifact filename: ''secret.txt'''
+                instance: /v1/snapshots/v2026.W45.1/files/secret.txt
+        '410':
+          description: Snapshot metadata exists, but binary blobs were pruned by retention policy.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Snapshot Artifacts Expired
+                status: 410
+                detail: Binary artifacts for 'v2026.W30' have been pruned by retention policy.
+                instance: /v1/snapshots/v2026.W30/files/dgip-asn.mmdb
+        '422':
+          description: Path parameter validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Unprocessable Content
+                status: 422
+                detail: '[{''type'': ''string_type'', ''loc'': (''path'', ''filename''), ''msg'': ''Input
+                  should be a valid string''}]'
+                instance: /v1/snapshots/v2026.W45.1/files/
+        '429':
+          description: Sliding-window per-client IP rate limit exceeded.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: about:blank
+                title: Too Many Requests
+                status: 429
+                detail: Rate limit exceeded. Retry after the indicated window.
+                instance: /v1/snapshots/v2026.W45.1/files/dgip-asn.mmdb
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests permitted per 60-second sliding window.
+              schema:
+                type: integer
+                example: 20
+            X-RateLimit-Remaining:
+              description: Remaining requests allowed in the current window.
+              schema:
+                type: integer
+                example: 0
+            X-RateLimit-Reset:
+              description: Seconds until the sliding rate-limit window resets.
+              schema:
+                type: integer
+                example: 18
+            Retry-After:
+              description: Seconds to wait before retrying the request.
+              schema:
+                type: integer
+                example: 18
+components:
+  schemas:
+    ASNInfo:
+      properties:
+        number:
+          type: integer
+          title: Number
+          description: 32-bit Autonomous System Number (RFC 6793).
+          examples:
+          - 16509
+        code:
+          type: string
+          title: Code
+          description: Formatted `AS<number>` identifier.
+          examples:
+          - AS16509
+        organization:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Organization
+          description: Registered Autonomous System organization name from RIR/WHOIS.
+          examples:
+          - Amazon.com, Inc.
+        network_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Network Type
+          description: Classified network role (`isp`, `hosting`, `cdn`, `transit`, `content`, `education`,
+            `government`, `business`), or `null` when unclassified.
+          examples:
+          - hosting
+        rpki_status:
+          anyOf:
+          - type: string
+            enum:
+            - valid
+            - invalid
+            - unknown
+          - type: string
+          - type: 'null'
+          title: Rpki Status
+          description: Cryptographic RPKI Route Origin Validation state (`valid`, `invalid`, or `unknown`
+            when no ROA covers the prefix).
+          default: unknown
+          examples:
+          - valid
+        range_start:
+          type: string
+          title: Range Start
+          description: First IP address of the coalesced routed BGP interval.
+          examples:
+          - 3.6.0.0
+        range_end:
+          type: string
+          title: Range End
+          description: Last IP address of the coalesced routed BGP interval.
+          examples:
+          - 3.7.255.255
+      type: object
+      required:
+      - number
+      - code
+      - range_start
+      - range_end
+      title: ASNInfo
+      description: Autonomous System ownership, network classification, RPKI status, and BGP prefix range.
+      example:
+        code: AS16509
+        network_type: hosting
+        number: 16509
+        organization: Amazon.com, Inc.
+        range_end: 3.7.255.255
+        range_start: 3.6.0.0
+        rpki_status: valid
+    BatchIPItemResult:
+      properties:
+        input:
+          type: string
+          title: Input
+          description: Original string supplied at this position in `ips`.
+          examples:
+          - 3.6.0.1
+        ok:
+          type: boolean
+          title: Ok
+          description: True if `input` parsed as a valid IPv4/IPv6 literal; false if malformed.
+          examples:
+          - true
+        data:
+          anyOf:
+          - $ref: '#/components/schemas/IPLookupResponse'
+          - type: 'null'
+          description: Full 4-layer lookup result when `ok=true`.
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error
+          description: Parse error reason when `ok=false`.
+          examples:
+          - null
+      type: object
+      required:
+      - input
+      - ok
+      title: BatchIPItemResult
+      description: Per-item result within a bulk IP lookup response, preserving caller input order.
+      example:
+        data:
+          asn:
+            code: AS16509
+            network_type: hosting
+            number: 16509
+            organization: Amazon.com, Inc.
+            range_end: 3.7.255.255
+            range_start: 3.6.0.0
+            rpki_status: valid
+          found: true
+          geo:
+            city: Mumbai
+            continent_code: AS
+            continent_name: Asia
+            country_code: IN
+            country_name: India
+            range_end: 3.7.255.255
+            range_start: 3.6.0.0
+            region_code: IN-MH
+            source: geofeed
+          ip: 3.6.0.1
+          ip_version: 4
+          is_bogon: false
+          is_ipv4_mapped: false
+          live_updated_at: '2026-11-02T19:00:00Z'
+          security:
+            is_cdn: false
+            is_cloud: true
+            is_datacenter: true
+            is_privacy_relay: false
+            is_threat: false
+            is_tor_exit: false
+            provider: aws
+            range_end: 3.7.255.255
+            range_start: 3.6.0.0
+            threat_feeds: []
+          snapshot_version: v2026.W45.1
+        input: 3.6.0.1
+        ok: true
+    BatchIPRequest:
+      properties:
+        ips:
+          items:
+            type: string
+          type: array
+          maxItems: 1000
+          minItems: 1
+          title: Ips
+          description: Ordered list of 1–1,000 IPv4 or IPv6 literals. Invalid items do not fail the HTTP
+            batch; instead they return `ok=false` with an item-level `error` message at the same index.
+          examples:
+          - - 3.6.0.1
+            - 2606:4700:4700::1111
+            - 192.168.1.1
+            - not-an-ip
+      type: object
+      required:
+      - ips
+      title: BatchIPRequest
+      description: Bulk IPv4 and IPv6 lookup request payload (1 to `batch_max_ips` addresses, default
+        1,000).
+      example:
+        ips:
+        - 3.6.0.1
+        - 2606:4700:4700::1111
+        - 192.168.1.1
+        - not-an-ip
+    BatchIPResponse:
+      properties:
+        count:
+          type: integer
+          title: Count
+          description: Total number of items returned in `results` (matches `len(ips)`).
+          examples:
+          - 4
+        snapshot_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Snapshot Version
+          description: Active dataset snapshot version tag.
+          examples:
+          - v2026.W45.1
+        live_updated_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Live Updated At
+          description: UTC timestamp of the most recent lookup table update.
+          examples:
+          - '2026-11-02T19:00:00Z'
+        results:
+          items:
+            $ref: '#/components/schemas/BatchIPItemResult'
+          type: array
+          title: Results
+          description: Per-address results in the exact order requested.
+      type: object
+      required:
+      - count
+      - results
+      title: BatchIPResponse
+      description: Ordered bulk IPv4/IPv6 lookup response.
+      example:
+        count: 4
+        live_updated_at: '2026-11-02T19:00:00Z'
+        results:
+        - data:
+            asn:
+              code: AS16509
+              network_type: hosting
+              number: 16509
+              organization: Amazon.com, Inc.
+              range_end: 3.7.255.255
+              range_start: 3.6.0.0
+              rpki_status: valid
+            found: true
+            geo:
+              city: Mumbai
+              continent_code: AS
+              continent_name: Asia
+              country_code: IN
+              country_name: India
+              range_end: 3.7.255.255
+              range_start: 3.6.0.0
+              region_code: IN-MH
+              source: geofeed
+            ip: 3.6.0.1
+            ip_version: 4
+            is_bogon: false
+            is_ipv4_mapped: false
+            live_updated_at: '2026-11-02T19:00:00Z'
+            security:
+              is_cdn: false
+              is_cloud: true
+              is_datacenter: true
+              is_privacy_relay: false
+              is_threat: false
+              is_tor_exit: false
+              provider: aws
+              range_end: 3.7.255.255
+              range_start: 3.6.0.0
+              threat_feeds: []
+            snapshot_version: v2026.W45.1
+          input: 3.6.0.1
+          ok: true
+        - data:
+            asn:
+              code: AS13335
+              network_type: cdn
+              number: 13335
+              organization: Cloudflare, Inc.
+              range_end: 2606:4700:4700:ffff:ffff:ffff:ffff:ffff
+              range_start: '2606:4700:4700::'
+              rpki_status: valid
+            found: true
+            geo:
+              continent_code: NA
+              continent_name: North America
+              country_code: US
+              country_name: United States
+              range_end: 2606:4700:ffff:ffff:ffff:ffff:ffff:ffff
+              range_start: '2606:4700::'
+              source: rir
+            ip: 2606:4700:4700::1111
+            ip_version: 6
+            is_bogon: false
+            is_ipv4_mapped: false
+            live_updated_at: '2026-11-02T19:00:00Z'
+            security:
+              is_cdn: true
+              is_cloud: true
+              is_datacenter: false
+              is_privacy_relay: false
+              is_threat: false
+              is_tor_exit: false
+              provider: cloudflare
+              range_end: 2606:4700:7fff:ffff:ffff:ffff:ffff:ffff
+              range_start: '2606:4700::'
+              threat_feeds: []
+            snapshot_version: v2026.W45.1
+          input: 2606:4700:4700::1111
+          ok: true
+        - data:
+            bogon_type: private
+            found: false
+            ip: 192.168.1.1
+            ip_version: 4
+            is_bogon: true
+            is_ipv4_mapped: false
+            live_updated_at: '2026-11-02T19:00:00Z'
+            snapshot_version: v2026.W45.1
+          input: 192.168.1.1
+          ok: true
+        - error: 'Invalid IPv4 or IPv6 address literal: ''not-an-ip'''
+          input: not-an-ip
+          ok: false
+        snapshot_version: v2026.W45.1
+    GeoInfo:
+      properties:
+        country_code:
+          type: string
+          title: Country Code
+          description: ISO 3166-1 alpha-2 country code.
+          examples:
+          - IN
+        country_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Country Name
+          description: English country name.
+          examples:
+          - India
+        continent_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Continent Code
+          description: Two-letter continent code (`AF`, `AN`, `AS`, `EU`, `NA`, `OC`, `SA`).
+          examples:
+          - AS
+        continent_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Continent Name
+          description: English continent name.
+          examples:
+          - Asia
+        region_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Region Code
+          description: ISO 3166-2 subdivision code when resolved via an RFC 8805 or cloud regional feed.
+          examples:
+          - IN-MH
+        city:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: City
+          description: UTF-8 city name when resolved via an RFC 8805 or cloud regional feed.
+          examples:
+          - Mumbai
+        source:
+          anyOf:
+          - type: string
+            enum:
+            - rir
+            - geofeed
+          - type: string
+          - type: 'null'
+          title: Source
+          description: Authoritative resolution layer (`geofeed` physical POP override vs `rir` delegation).
+          default: rir
+          examples:
+          - geofeed
+        range_start:
+          type: string
+          title: Range Start
+          description: First IP address of the coalesced geolocation interval.
+          examples:
+          - 3.6.0.0
+        range_end:
+          type: string
+          title: Range End
+          description: Last IP address of the coalesced geolocation interval.
+          examples:
+          - 3.7.255.255
+      type: object
+      required:
+      - country_code
+      - range_start
+      - range_end
+      title: GeoInfo
+      description: Country, continent, and physical operator geofeed geolocation metadata.
+      example:
+        city: Mumbai
+        continent_code: AS
+        continent_name: Asia
+        country_code: IN
+        country_name: India
+        range_end: 3.7.255.255
+        range_start: 3.6.0.0
+        region_code: IN-MH
+        source: geofeed
+    HealthLiveResponse:
+      properties:
+        status:
+          type: string
+          const: ok
+          title: Status
+          description: Process liveness indicator.
+          default: ok
+        version:
+          type: string
+          title: Version
+          description: Running DGIP semantic version.
+          examples:
+          - 1.0.0
+      type: object
+      required:
+      - version
+      title: HealthLiveResponse
+      description: Container process liveness response.
+      example:
+        status: ok
+        version: 1.0.0
+    HealthReadyResponse:
+      properties:
+        status:
+          type: string
+          const: ready
+          title: Status
+          description: Readiness state.
+          default: ready
+        active_slot:
+          type: string
+          enum:
+          - a
+          - b
+          title: Active Slot
+          description: Currently active Blue/Green PostgreSQL lookup slot (`a` or `b`).
+          examples:
+          - a
+        active_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Active Version
+          description: Installed weekly snapshot version tag (or `null` if populated via live sync only).
+          examples:
+          - v2026.W45.1
+        initial_bootstrapped:
+          type: boolean
+          title: Initial Bootstrapped
+          description: Whether the initial dataset bootstrap has completed.
+          examples:
+          - true
+      type: object
+      required:
+      - active_slot
+      - initial_bootstrapped
+      title: HealthReadyResponse
+      description: PostgreSQL connectivity and active GiST lookup slot readiness response.
+      example:
+        active_slot: a
+        active_version: v2026.W45.1
+        initial_bootstrapped: true
+        status: ready
+    IPLookupResponse:
+      properties:
+        ip:
+          type: string
+          title: Ip
+          description: Canonical normalized IPv4 or compressed RFC 5952 IPv6 address.
+          examples:
+          - 3.6.0.1
+        ip_version:
+          anyOf:
+          - type: integer
+            enum:
+            - 4
+            - 6
+          - type: integer
+          title: Ip Version
+          description: Normalized IP protocol version (`4` or `6`). `::ffff:a.b.c.d` unwraps to `4` with
+            `is_ipv4_mapped=true`.
+          examples:
+          - 4
+        is_ipv4_mapped:
+          type: boolean
+          title: Is Ipv4 Mapped
+          description: True when the caller supplied an IPv4-mapped IPv6 literal (`::ffff:0:0/96`).
+          default: false
+          examples:
+          - false
+        is_bogon:
+          type: boolean
+          title: Is Bogon
+          description: True when the IP falls within an RFC 6890 / IANA special-purpose (non-globally-routable)
+            range.
+          examples:
+          - false
+        bogon_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Bogon Type
+          description: RFC 6890 special-range category (`private`, `loopback`, `link_local`, `cgnat`,
+            `documentation`, `multicast`, `reserved`) when `is_bogon=true`.
+          examples:
+          - null
+        found:
+          type: boolean
+          title: Found
+          description: True when at least one intelligence layer (`asn`, `geo`, or `security`) matched
+            the public IP.
+          examples:
+          - true
+        asn:
+          anyOf:
+          - $ref: '#/components/schemas/ASNInfo'
+          - type: 'null'
+          description: Layer 1 + Layer 3 BGP Autonomous System and RPKI ROV metadata (`null` if unannounced
+            or bogon).
+        geo:
+          anyOf:
+          - $ref: '#/components/schemas/GeoInfo'
+          - type: 'null'
+          description: Layer 1 + Layer 2 country, continent, and sub-national geofeed metadata (`null`
+            if unallocated or bogon).
+        security:
+          anyOf:
+          - $ref: '#/components/schemas/SecurityInfo'
+          - type: 'null'
+          description: Layer 4 cloud, CDN, privacy-relay, Tor exit, and threat classification (`null`
+            when `found=false`).
+        snapshot_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Snapshot Version
+          description: Active dataset snapshot version tag.
+          examples:
+          - v2026.W45.1
+        live_updated_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Live Updated At
+          description: UTC timestamp when the active PostgreSQL lookup slot was last refreshed.
+          examples:
+          - '2026-11-02T19:00:00Z'
+      type: object
+      required:
+      - ip
+      - ip_version
+      - is_bogon
+      - found
+      title: IPLookupResponse
+      description: Single IPv4 or IPv6 4-layer intelligence lookup result.
+      example:
+        asn:
+          code: AS16509
+          network_type: hosting
+          number: 16509
+          organization: Amazon.com, Inc.
+          range_end: 3.7.255.255
+          range_start: 3.6.0.0
+          rpki_status: valid
+        found: true
+        geo:
+          city: Mumbai
+          continent_code: AS
+          continent_name: Asia
+          country_code: IN
+          country_name: India
+          range_end: 3.7.255.255
+          range_start: 3.6.0.0
+          region_code: IN-MH
+          source: geofeed
+        ip: 3.6.0.1
+        ip_version: 4
+        is_bogon: false
+        is_ipv4_mapped: false
+        live_updated_at: '2026-11-02T19:00:00Z'
+        security:
+          is_cdn: false
+          is_cloud: true
+          is_datacenter: true
+          is_privacy_relay: false
+          is_threat: false
+          is_tor_exit: false
+          provider: aws
+          range_end: 3.7.255.255
+          range_start: 3.6.0.0
+          threat_feeds: []
+        snapshot_version: v2026.W45.1
+    SecurityInfo:
+      properties:
+        is_cloud:
+          type: boolean
+          title: Is Cloud
+          description: True when the IP belongs to a published cloud infrastructure range.
+          default: false
+          examples:
+          - true
+        is_datacenter:
+          type: boolean
+          title: Is Datacenter
+          description: True when the IP belongs to an IaaS compute/hosting datacenter range.
+          default: false
+          examples:
+          - true
+        is_cdn:
+          type: boolean
+          title: Is Cdn
+          description: True when the IP belongs to a Content Delivery Network edge range (e.g. Cloudflare,
+            Fastly).
+          default: false
+          examples:
+          - false
+        is_tor_exit:
+          type: boolean
+          title: Is Tor Exit
+          description: True when the IP is an active Tor Project exit relay.
+          default: false
+          examples:
+          - false
+        is_privacy_relay:
+          type: boolean
+          title: Is Privacy Relay
+          description: True when the IP belongs to a consumer privacy relay (e.g. Apple iCloud Private
+            Relay).
+          default: false
+          examples:
+          - false
+        is_threat:
+          type: boolean
+          title: Is Threat
+          description: True when the IP is listed on one or more active threat blocklists (`Spamhaus DROP`,
+            `Feodo C2`).
+          default: false
+          examples:
+          - false
+        provider:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Provider
+          description: Matched infrastructure/relay provider slug (`aws`, `gcp`, `oracle`, `digitalocean`,
+            `linode`, `vultr`, `cloudflare`, `fastly`, `github`, `apple_icloud_relay`).
+          examples:
+          - aws
+        threat_feeds:
+          items:
+            type: string
+          type: array
+          title: Threat Feeds
+          description: Matched threat feed identifiers (`spamhaus_drop`, `spamhaus_drop_v6`, `feodo_c2`).
+          examples:
+          - []
+        range_start:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Range Start
+          description: First IP address of the matched security interval (if any).
+          examples:
+          - 3.6.0.0
+        range_end:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Range End
+          description: Last IP address of the matched security interval (if any).
+          examples:
+          - 3.7.255.255
+      type: object
+      title: SecurityInfo
+      description: Cloud, CDN, privacy relay, Tor exit node, and threat intelligence classification.
+      example:
+        is_cdn: false
+        is_cloud: true
+        is_datacenter: true
+        is_privacy_relay: false
+        is_threat: false
+        is_tor_exit: false
+        provider: aws
+        range_end: 3.7.255.255
+        range_start: 3.6.0.0
+        threat_feeds: []
+    SnapshotFileMetadata:
+      properties:
+        filename:
+          type: string
+          title: Filename
+          description: Artifact filename within the snapshot release.
+          examples:
+          - dgip-asn-ipv4.csv.gz
+        sha256:
+          type: string
+          title: Sha256
+          description: Lowercase hex-encoded SHA-256 digest of the artifact.
+          examples:
+          - 08ea1feb59890f448fb91a32c8b02d39ef27e4c146c9b8f398e0f10d601dc91e
+        size_bytes:
+          type: integer
+          title: Size Bytes
+          description: Artifact size in bytes.
+          examples:
+          - 7010886
+        record_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Record Count
+          description: Number of compiled IP intervals or prefixes contained in the file.
+          examples:
+          - 415769
+        download_path:
+          type: string
+          title: Download Path
+          description: Relative API path to download this artifact.
+          examples:
+          - /v1/snapshots/v2026.W45.1/files/dgip-asn-ipv4.csv.gz
+      type: object
+      required:
+      - filename
+      - sha256
+      - size_bytes
+      - download_path
+      title: SnapshotFileMetadata
+      description: Checksum, byte size, and row count metadata for an individual snapshot artifact.
+      example:
+        download_path: /v1/snapshots/v2026.W45.1/files/dgip-asn-ipv4.csv.gz
+        filename: dgip-asn-ipv4.csv.gz
+        record_count: 415769
+        sha256: 08ea1feb59890f448fb91a32c8b02d39ef27e4c146c9b8f398e0f10d601dc91e
+        size_bytes: 7010886
+    SnapshotListResponse:
+      properties:
+        active_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Active Version
+          description: Currently active snapshot version in the live lookup slot.
+          examples:
+          - v2026.W45.1
+        retention_limit:
+          type: integer
+          title: Retention Limit
+          description: Number of recent snapshots whose binary blobs are retained in PostgreSQL.
+          examples:
+          - 5
+        snapshots:
+          items:
+            $ref: '#/components/schemas/SnapshotMetadataResponse'
+          type: array
+          title: Snapshots
+          description: Snapshot releases ordered newest first.
+      type: object
+      required:
+      - active_version
+      - retention_limit
+      - snapshots
+      title: SnapshotListResponse
+      description: Paginated snapshot release history response.
+      example:
+        active_version: v2026.W45.1
+        retention_limit: 5
+        snapshots:
+        - build_number: 1
+          bundle_download_path: /v1/snapshots/v2026.W45.1/bundle.tar.gz
+          bundle_sha256: a14124a00d72463ef92b4a5e48d2b114c00c88a7d6d51b09892411358a54f903
+          bundle_size_bytes: 25668422
+          diff_summary:
+            unique_asns: 77412
+            unique_countries: 249
+          files:
+          - download_path: /v1/snapshots/v2026.W45.1/files/dgip-asn-ipv4.csv.gz
+            filename: dgip-asn-ipv4.csv.gz
+            record_count: 415769
+            sha256: 08ea1feb59890f448fb91a32c8b02d39ef27e4c146c9b8f398e0f10d601dc91e
+            size_bytes: 7010886
+          - download_path: /v1/snapshots/v2026.W45.1/files/dgip-country-ipv4.csv.gz
+            filename: dgip-country-ipv4.csv.gz
+            record_count: 183144
+            sha256: ed4b13d2b7c3b73c9783137645c17d57db9e3d217901f079b65c5d4c5c43a812
+            size_bytes: 1407315
+          - download_path: /v1/snapshots/v2026.W45.1/files/dgip-security-ipv4.csv.gz
+            filename: dgip-security-ipv4.csv.gz
+            record_count: 7423
+            sha256: 778710d98c4c56a9216d1c6e8a6b0156ab61e99a44b19ef0e16b25891cf18f04
+            size_bytes: 55688
+          - download_path: /v1/snapshots/v2026.W45.1/files/dgip-geofeed.csv.gz
+            filename: dgip-geofeed.csv.gz
+            record_count: 561024
+            sha256: 4504adc3819e04c0f4d87790ef9dc4e4a1f8f53f4380c324a0a77019f07938ab
+            size_bytes: 3347588
+          - download_path: /v1/snapshots/v2026.W45.1/files/dgip-asn.mmdb
+            filename: dgip-asn.mmdb
+            record_count: 512621
+            sha256: bc3391d9ad3bb19e845c90823a01f742764f1c9a3d5f199f2c89715d911033a1
+            size_bytes: 19914959
+          - download_path: /v1/snapshots/v2026.W45.1/files/dgip-country.mmdb
+            filename: dgip-country.mmdb
+            record_count: 507259
+            sha256: 105276c2e95201bbf03b8c523e9301f7653e425f638a1b71005e28d18a9911bc
+            size_bytes: 8619686
+          - download_path: /v1/snapshots/v2026.W45.1/files/dgip-security.mmdb
+            filename: dgip-security.mmdb
+            record_count: 16512
+            sha256: 98a01dddc1fb7611398401e1c82b6f1745c38b1109e27d112b38c6f97a8841de
+            size_bytes: 876930
+          has_blobs: true
+          installed_version: v2026.W44
+          manifest:
+            normalized_sha256: 6e71c92284bd90e4a127d1c3a500918471f8c3d018f7e6a5b4c3d2e1f0a9b8c7
+            release_title: v2026.W45.1
+            released_at: '2026-11-02T19:18:00Z'
+            schema_version: 1
+            version: v2026.W45.1
+          operator_note: Initial public release of the 4-layer DGIP Open IP Intelligence dataset.
+          release_notes_md: '## DGIP Dataset Release `v2026.W45.1`
+
+
+            Compiled from 25 authoritative RIR, RIPE RIS, RPKI VRP, RFC 8805 Geofeed, and open security
+            feeds.'
+          release_title: v2026.W45.1
+          released_at: '2026-11-02T19:18:00Z'
+          row_counts:
+            dgip-asn-ipv4.csv.gz: 415769
+            dgip-asn-ipv6.csv.gz: 96852
+            dgip-country-ipv4.csv.gz: 183144
+            dgip-country-ipv6.csv.gz: 324115
+            dgip-security-ipv4.csv.gz: 7423
+            dgip-security-ipv6.csv.gz: 9089
+          sha256sums_download_path: /v1/snapshots/v2026.W45.1/files/SHA256SUMS.txt
+          source_attribution: Compiled from ARIN, RIPE NCC, APNIC, LACNIC, AFRINIC, RIPE RIS, OpenBSD
+            rpki-client VRPs, bgp.tools, RFC 8805 Geofeeds, Tor Project, Spamhaus DROP, and Abuse.ch Feodo
+            Tracker.
+          update_available: true
+          version: v2026.W45.1
+    SnapshotMetadataResponse:
+      properties:
+        version:
+          type: string
+          title: Version
+          description: ISO-8601 week snapshot version tag (`vYYYY.Www` or `vYYYY.Www.N`).
+          examples:
+          - v2026.W45.1
+        release_title:
+          type: string
+          title: Release Title
+          description: Human-readable release title.
+          examples:
+          - v2026.W45.1
+        build_number:
+          type: integer
+          title: Build Number
+          description: Monotonically increasing build sequence number.
+          examples:
+          - 1
+        released_at:
+          type: string
+          format: date-time
+          title: Released At
+          description: UTC timestamp when the snapshot was compiled.
+          examples:
+          - '2026-11-02T19:18:00Z'
+        previous_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Previous Version
+          description: Prior snapshot version used to compute `diff_summary` (`null` for initial release).
+          examples:
+          - null
+        bundle_sha256:
+          type: string
+          title: Bundle Sha256
+          description: SHA-256 digest of `bundle.tar.gz`.
+          examples:
+          - a14124a00d72463ef92b4a5e48d2b114c00c88a7d6d51b09892411358a54f903
+        bundle_size_bytes:
+          type: integer
+          title: Bundle Size Bytes
+          description: Byte size of `bundle.tar.gz`.
+          examples:
+          - 25668422
+        bundle_download_path:
+          type: string
+          title: Bundle Download Path
+          description: Relative API path to download `bundle.tar.gz`.
+          examples:
+          - /v1/snapshots/v2026.W45.1/bundle.tar.gz
+        sha256sums_download_path:
+          type: string
+          title: Sha256Sums Download Path
+          description: Relative API path to download `SHA256SUMS.txt`.
+          examples:
+          - /v1/snapshots/v2026.W45.1/files/SHA256SUMS.txt
+        has_blobs:
+          type: boolean
+          title: Has Blobs
+          description: True while binary artifacts are retained in PostgreSQL; false once pruned (`410
+            Gone`).
+          examples:
+          - true
+        row_counts:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Row Counts
+          description: Compiled disjoint interval counts keyed by `.csv.gz` dataset filename.
+          examples:
+          - dgip-asn-ipv4.csv.gz: 415769
+            dgip-asn-ipv6.csv.gz: 96852
+            dgip-country-ipv4.csv.gz: 183144
+            dgip-country-ipv6.csv.gz: 324115
+            dgip-security-ipv4.csv.gz: 7423
+            dgip-security-ipv6.csv.gz: 9089
+        diff_summary:
+          additionalProperties: true
+          type: object
+          title: Diff Summary
+          description: Structured delta metrics against `previous_version`.
+          examples:
+          - unique_asns: 77412
+            unique_countries: 249
+        release_notes_md:
+          type: string
+          title: Release Notes Md
+          description: Markdown release notes suitable for GitHub Releases.
+          examples:
+          - '## DGIP Dataset Release `v2026.W45.1`
+
+
+            Compiled from 25 authoritative RIR, RIPE RIS, RPKI VRP, RFC 8805 Geofeed, and open security
+            feeds.'
+        operator_note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Operator Note
+          description: Optional custom note supplied via `dgip release --note`.
+          examples:
+          - Initial public release of the 4-layer DGIP Open IP Intelligence dataset.
+        files:
+          items:
+            $ref: '#/components/schemas/SnapshotFileMetadata'
+          type: array
+          title: Files
+          description: Per-file checksums, sizes, record counts, and download paths for all 10 dataset
+            files.
+        manifest:
+          additionalProperties: true
+          type: object
+          title: Manifest
+          description: Embedded `manifest.json` object packaged inside `bundle.tar.gz`.
+          examples:
+          - normalized_sha256: 6e71c92284bd90e4a127d1c3a500918471f8c3d018f7e6a5b4c3d2e1f0a9b8c7
+            release_title: v2026.W45.1
+            released_at: '2026-11-02T19:18:00Z'
+            schema_version: 1
+            version: v2026.W45.1
+        source_attribution:
+          type: string
+          title: Source Attribution
+          description: Upstream registry attribution notice.
+          examples:
+          - Compiled from ARIN, RIPE NCC, APNIC, LACNIC, AFRINIC, RIPE RIS, OpenBSD rpki-client VRPs,
+            bgp.tools, RFC 8805 Geofeeds, Tor Project, Spamhaus DROP, and Abuse.ch Feodo Tracker.
+        installed_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Installed Version
+          description: Echoes `?current_version=` when supplied on `/v1/snapshots/latest`.
+          examples:
+          - v2026.W44
+        update_available:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Update Available
+          description: Boolean indicating `installed_version != version` when `?current_version=` is supplied.
+          examples:
+          - true
+      type: object
+      required:
+      - version
+      - release_title
+      - build_number
+      - released_at
+      - bundle_sha256
+      - bundle_size_bytes
+      - bundle_download_path
+      - sha256sums_download_path
+      - has_blobs
+      - row_counts
+      - diff_summary
+      - release_notes_md
+      - files
+      - manifest
+      - source_attribution
+      title: SnapshotMetadataResponse
+      description: Weekly snapshot release descriptor served to clients and the `dgip-data` workflow.
+      example:
+        build_number: 1
+        bundle_download_path: /v1/snapshots/v2026.W45.1/bundle.tar.gz
+        bundle_sha256: a14124a00d72463ef92b4a5e48d2b114c00c88a7d6d51b09892411358a54f903
+        bundle_size_bytes: 25668422
+        diff_summary:
+          unique_asns: 77412
+          unique_countries: 249
+        files:
+        - download_path: /v1/snapshots/v2026.W45.1/files/dgip-asn-ipv4.csv.gz
+          filename: dgip-asn-ipv4.csv.gz
+          record_count: 415769
+          sha256: 08ea1feb59890f448fb91a32c8b02d39ef27e4c146c9b8f398e0f10d601dc91e
+          size_bytes: 7010886
+        - download_path: /v1/snapshots/v2026.W45.1/files/dgip-country-ipv4.csv.gz
+          filename: dgip-country-ipv4.csv.gz
+          record_count: 183144
+          sha256: ed4b13d2b7c3b73c9783137645c17d57db9e3d217901f079b65c5d4c5c43a812
+          size_bytes: 1407315
+        - download_path: /v1/snapshots/v2026.W45.1/files/dgip-security-ipv4.csv.gz
+          filename: dgip-security-ipv4.csv.gz
+          record_count: 7423
+          sha256: 778710d98c4c56a9216d1c6e8a6b0156ab61e99a44b19ef0e16b25891cf18f04
+          size_bytes: 55688
+        - download_path: /v1/snapshots/v2026.W45.1/files/dgip-geofeed.csv.gz
+          filename: dgip-geofeed.csv.gz
+          record_count: 561024
+          sha256: 4504adc3819e04c0f4d87790ef9dc4e4a1f8f53f4380c324a0a77019f07938ab
+          size_bytes: 3347588
+        - download_path: /v1/snapshots/v2026.W45.1/files/dgip-asn.mmdb
+          filename: dgip-asn.mmdb
+          record_count: 512621
+          sha256: bc3391d9ad3bb19e845c90823a01f742764f1c9a3d5f199f2c89715d911033a1
+          size_bytes: 19914959
+        - download_path: /v1/snapshots/v2026.W45.1/files/dgip-country.mmdb
+          filename: dgip-country.mmdb
+          record_count: 507259
+          sha256: 105276c2e95201bbf03b8c523e9301f7653e425f638a1b71005e28d18a9911bc
+          size_bytes: 8619686
+        - download_path: /v1/snapshots/v2026.W45.1/files/dgip-security.mmdb
+          filename: dgip-security.mmdb
+          record_count: 16512
+          sha256: 98a01dddc1fb7611398401e1c82b6f1745c38b1109e27d112b38c6f97a8841de
+          size_bytes: 876930
+        has_blobs: true
+        installed_version: v2026.W44
+        manifest:
+          normalized_sha256: 6e71c92284bd90e4a127d1c3a500918471f8c3d018f7e6a5b4c3d2e1f0a9b8c7
+          release_title: v2026.W45.1
+          released_at: '2026-11-02T19:18:00Z'
+          schema_version: 1
+          version: v2026.W45.1
+        operator_note: Initial public release of the 4-layer DGIP Open IP Intelligence dataset.
+        release_notes_md: '## DGIP Dataset Release `v2026.W45.1`
+
+
+          Compiled from 25 authoritative RIR, RIPE RIS, RPKI VRP, RFC 8805 Geofeed, and open security
+          feeds.'
+        release_title: v2026.W45.1
+        released_at: '2026-11-02T19:18:00Z'
+        row_counts:
+          dgip-asn-ipv4.csv.gz: 415769
+          dgip-asn-ipv6.csv.gz: 96852
+          dgip-country-ipv4.csv.gz: 183144
+          dgip-country-ipv6.csv.gz: 324115
+          dgip-security-ipv4.csv.gz: 7423
+          dgip-security-ipv6.csv.gz: 9089
+        sha256sums_download_path: /v1/snapshots/v2026.W45.1/files/SHA256SUMS.txt
+        source_attribution: Compiled from ARIN, RIPE NCC, APNIC, LACNIC, AFRINIC, RIPE RIS, OpenBSD rpki-client
+          VRPs, bgp.tools, RFC 8805 Geofeeds, Tor Project, Spamhaus DROP, and Abuse.ch Feodo Tracker.
+        update_available: true
+        version: v2026.W45.1
+    ProblemDetails:
+      additionalProperties: true
+      description: RFC 9457 Problem Details (`application/problem+json`).
+      example:
+        detail: 'Invalid IPv4 or IPv6 address literal: ''example.com'' (DNS hostnames and CIDR prefixes
+          are not accepted).'
+        instance: /v1/ip/example.com
+        status: 400
+        title: Invalid IP Address
+        type: about:blank
+      properties:
+        type:
+          default: about:blank
+          description: URI reference identifying the problem type (RFC 9457).
+          examples:
+          - about:blank
+          title: Type
+          type: string
+        title:
+          description: Short, human-readable summary of the problem type.
+          examples:
+          - Invalid IP Address
+          title: Title
+          type: string
+        status:
+          description: HTTP status code generated by the origin server.
+          examples:
+          - 400
+          title: Status
+          type: integer
+        detail:
+          description: Human-readable explanation specific to this occurrence of the problem.
+          examples:
+          - 'Invalid IPv4 or IPv6 address literal: ''example.com'' (DNS hostnames and CIDR prefixes are
+            not accepted).'
+          title: Detail
+          type: string
+        instance:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          description: Request path that triggered the error.
+          examples:
+          - /v1/ip/example.com
+          title: Instance
+      required:
+      - title
+      - status
+      - detail
+      title: ProblemDetails
+      type: object
+tags:
+- name: Health
+  description: Container liveness and database/dataset readiness probes.
+- name: IP Lookup
+  description: Single, caller, and batch IPv4/IPv6 ASN, RPKI route validity, RFC 8805 sub-national geolocation,
+    and cloud/CDN/Tor/threat lookups.
+- name: Snapshots
+  description: Weekly multi-format dataset releases (RFC 4180 CSV, RFC 8805 Geofeed, and MaxMind MMDB
+    v2.0 ASN/Country/Security databases).
+externalDocs:
+  description: DGIP Public Weekly Dataset Releases (daviante-org/dgip-data)
+  url: https://github.com/daviante-org/dgip-data
+servers:
+- url: /
+  description: Current DGIP instance
+- url: https://dgip.daviante.org
+  description: Production DGIP API
+- url: http://localhost:8090
+  description: Local container instance

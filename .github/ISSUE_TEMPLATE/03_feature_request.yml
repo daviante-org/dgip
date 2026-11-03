@@ -1,0 +1,41 @@
+name: Feature Request
+description: Propose an enhancement to the DGIP engine, CLI, Helm chart, or dataset outputs.
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Target Area
+      options:
+        - HTTP API
+        - dgip Operational CLI
+        - Compiler / Dataset Formats (CSV, Geofeed, MMDB)
+        - Container / Helm / Kubernetes / OpenShift
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Operational Use Case
+      description: What operational problem or workflow gap does this solve?
+      placeholder: As a self-hosted operator running DGIP on Kubernetes, I want to ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe how you envision the feature working (CLI flags, config keys, API fields, Helm values, etc.).
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any workarounds or alternative designs you evaluated.

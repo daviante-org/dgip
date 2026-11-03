@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a Security Vulnerability (Private)
+    url: https://github.com/daviante-org/dgip/security/advisories/new
+    about: Report security vulnerabilities privately via GitHub Security Advisories or code@daviante.org — do not open a public issue.
+  - name: Troubleshooting & Operations Runbook
+    url: https://github.com/daviante-org/dgip/blob/main/docs/TROUBLESHOOTING.md
+    about: Check solutions for bootstrap, RIR stalls, X-Forwarded-For rate limits, OpenShift UIDs, and MMDB loading before filing an issue.
+  - name: Weekly Public Datasets (dgip-data)
+    url: https://github.com/daviante-org/dgip-data/releases
+    about: Download verified weekly CSV, RFC 8805 Geofeed, and MaxMind MMDB v2.0 dataset releases.

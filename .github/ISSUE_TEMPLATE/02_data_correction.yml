@@ -1,0 +1,54 @@
+name: IP / ASN Data Correction or Parser Issue
+description: Report an IPv4/IPv6 country or ASN discrepancy, RFC 6890 special-purpose classification bug, or RIR/RIPE RIS parser edge case.
+title: "[Data]: "
+labels: ["data-correction", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Before submitting a data discrepancy:**
+        DGIP compiles datasets deterministically from authoritative RIR delegation statistics (`ARIN`, `RIPE NCC`, `APNIC`, `LACNIC`, `AFRINIC`) and `RIPE NCC RIS` BGP routing tables (see [`docs/SOURCES_AND_DATA_POLICY.md`](https://github.com/daviante-org/dgip/blob/main/docs/SOURCES_AND_DATA_POLICY.md)).
+        - If an RIR delegation file itself lists an outdated country or registration, the network operator (LIR) must update their record with the authoritative RIR; DGIP will ingest the update automatically within 24 hours.
+        - Use this form when **DGIP's response differs from authoritative RIR/RIPE RIS records** or misclassifies an RFC 6890 / bogon range.
+
+  - type: input
+    id: prefix
+    attributes:
+      label: Affected IP Address or CIDR Prefix
+      placeholder: e.g. 1.1.1.1 or 2606:4700:4700::1111 or 203.0.113.0/24
+    validations:
+      required: true
+
+  - type: input
+    id: snapshot_version
+    attributes:
+      label: Snapshot Version
+      description: The `snapshot_version` returned by `/v1/ip/{ip}` or `dgip status`.
+      placeholder: e.g. v2026.W45
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_output
+    attributes:
+      label: Current DGIP Response
+      description: Paste the JSON response from `/v1/ip/{ip}` or the matching CSV/MMDB record.
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_output
+    attributes:
+      label: Expected Country / ASN / Classification
+      placeholder: e.g. Expected country_code = "DE", asn = 24940, is_bogon = false
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Authoritative RIR / BGP / RFC Evidence
+      description: Provide the relevant RIR delegated stats entry, RIPEstat/RIS BGP announcement, or IANA/RFC reference supporting the expected value.
+    validations:
+      required: true

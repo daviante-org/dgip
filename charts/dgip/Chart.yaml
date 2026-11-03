@@ -1,0 +1,36 @@
+# ==============================================================================
+# DGIP Official Helm Chart — Chart Metadata
+# Distributed exclusively via GitHub Container Registry (OCI) & GitHub Releases:
+#   oci://ghcr.io/daviante-org/charts/dgip
+# ==============================================================================
+apiVersion: v2
+name: dgip
+description: >-
+  Self-hosted IPv4 & IPv6 Autonomous System (ASN) and country geolocation service
+  compiled directly from official RIR and RIPE RIS routing registries. Supports
+  standard Kubernetes and Red Hat OpenShift (restricted-v2 SCC & Routes).
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+kubeVersion: ">=1.26.0-0"
+home: https://daviante.org
+icon: https://raw.githubusercontent.com/daviante-org/dgip/main/assets/favicon.svg
+sources:
+  - https://github.com/daviante-org/dgip
+  - https://github.com/daviante-org/dgip-data
+keywords:
+  - geoip
+  - asn
+  - bgp
+  - ipv4
+  - ipv6
+  - mmdb
+  - geofeed
+  - network-intelligence
+  - openshift
+maintainers:
+  - name: Daviante
+    email: code@daviante.org
+    url: https://daviante.org
+annotations:
+  licenses: Apache-2.0

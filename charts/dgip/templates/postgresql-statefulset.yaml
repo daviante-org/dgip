@@ -1,0 +1,117 @@
+{{- if .Values.database.internal.enabled -}}
+# Bundled single-node PostgreSQL 17 StatefulSet for self-contained deployments.
+# For multi-AZ high availability, set `database.internal.enabled: false` and connect
+# `database.external.*` to CloudNativePG, Patroni, or a managed PostgreSQL service.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "dgip.postgresql.fullname" . }}
+  labels:
+    {{- include "dgip.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  serviceName: {{ include "dgip.postgresql.fullname" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "dgip.postgresql.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "dgip.postgresql.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        {{- if not .Values.openshift.enabled }}
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        {{- end }}
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgresql
+          image: "{{ .Values.database.internal.image.repository }}:{{ .Values.database.internal.image.tag }}"
+          imagePullPolicy: {{ .Values.database.internal.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          ports:
+            - name: postgresql
+              containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.database.internal.username | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.database.internal.database | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "dgip.fullname" .) .Values.database.internal.existingSecret }}
+                  key: {{ if .Values.database.internal.existingSecret }}{{ .Values.database.internal.existingSecretPasswordKey }}{{ else }}postgres-password{{ end }}
+            # Subdirectory avoids ext4 PVC `lost+found` initialization errors and
+            # supports arbitrary UIDs under OpenShift `restricted-v2` SCC.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml .Values.database.internal.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: run-postgresql
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: run-postgresql
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        {{- if not .Values.database.internal.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+  {{- if .Values.database.internal.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          {{- toYaml .Values.database.internal.persistence.accessModes | nindent 10 }}
+        {{- if .Values.database.internal.persistence.storageClassName }}
+        storageClassName: {{ .Values.database.internal.persistence.storageClassName | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.database.internal.persistence.size }}
+  {{- end }}
+{{- end }}
